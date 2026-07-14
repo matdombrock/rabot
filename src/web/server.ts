@@ -591,6 +591,24 @@ export function createWebServer(client: Client) {
   app.delete("/api/guild/:guildId/ai-chat/log/:logId", async (req, res) => {
     try {
       const db = getGuildDb(req.params.guildId);
+      const entry = db.prepare("SELECT * FROM ai_chat_log WHERE id = ?").get(req.params.logId) as { response_message_id: string; ack_message_id: string; channel_id: string } | undefined;
+      if (!entry) { res.status(404).json({ error: "Log not found" }); return; }
+
+      const guild = client.guilds.cache.get(req.params.guildId);
+      const { ack_message_id, response_message_id, channel_id } = entry;
+
+      // Delete both the ack and the response from Discord
+      for (const msgId of [ack_message_id, response_message_id]) {
+        if (!msgId) continue;
+        try {
+          const channel = guild?.channels.cache.get(channel_id);
+          if (channel?.isTextBased()) {
+            const msg = await channel.messages.fetch(msgId);
+            await msg.delete();
+          }
+        } catch {}
+      }
+
       db.prepare("DELETE FROM ai_chat_log WHERE id = ?").run(req.params.logId);
       res.json({ ok: true });
     } catch (err) {

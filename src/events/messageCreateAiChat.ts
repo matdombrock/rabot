@@ -29,6 +29,7 @@ const messageCreateAiChat: Event = {
 
     // Send an immediate acknowledgment
     const ack = await message.reply("brewing some slop...");
+    let ackMessageId = ack.id;
 
     // Get recent messages from this channel
     const messages = db.prepare(`
@@ -54,6 +55,8 @@ const messageCreateAiChat: Event = {
     ].join("\n");
 
     try {
+      // Timeout: if the fetch takes longer than 30s, the AbortSignal will fire
+      const timeoutSignal = AbortSignal.timeout(30000);
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -70,6 +73,7 @@ const messageCreateAiChat: Event = {
           max_tokens: maxTokens ?? 1000,
           temperature: temperature ?? 0.5,
         }),
+        signal: timeoutSignal,
       });
 
       if (!response.ok) {
@@ -80,18 +84,20 @@ const messageCreateAiChat: Event = {
 
       const data = (await response.json()) as { choices: { message: { content: string } }[] };
       const reply = data.choices?.[0]?.message?.content ?? "(no response)";
+      const prefixed = `**LLM OUTPUT:**\n\n${reply}`;
 
       // Send the actual response as a new message
-      if (reply.length <= 2000) {
-        await message.reply(reply);
+      let botReply;
+      if (prefixed.length <= 2000) {
+        botReply = await message.reply(prefixed);
       } else {
-        await message.reply(reply.slice(0, 2000));
+        botReply = await message.reply(prefixed.slice(0, 2000));
       }
 
       // Log to DB
       const channelName = message.channel.isDMBased() ? "DM" : (message.channel as { name: string }).name ?? "unknown";
       db.prepare(
-        `INSERT INTO ai_chat_log (id, guild_id, channel_id, channel_name, user_id, user_name, question, response, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO ai_chat_log (id, guild_id, channel_id, channel_name, user_id, user_name, question, response, created_at, response_message_id, ack_message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         crypto.randomUUID(),
         guildId,
@@ -102,9 +108,14 @@ const messageCreateAiChat: Event = {
         userMessage,
         reply,
         new Date().toISOString(),
+        botReply?.id ?? "",
+        ackMessageId ?? "",
       );
     } catch (err) {
       console.error("AI chat error:", err);
+      if (err instanceof Error && err.name === 'TimeoutError') {
+        await message.reply("LLM Response timed out").catch(() => {});
+      }
     }
   },
 };
