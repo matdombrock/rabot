@@ -147,6 +147,297 @@
     return s;
   }
 
+  function htmlEscape(str) {
+    if (str == null) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function msgTimestamp(ts) {
+    return new Date(ts).toLocaleString();
+  }
+
+  function msgDate(ts) {
+    return new Date(ts).toLocaleDateString();
+  }
+
+  async function exportChannelHtml() {
+    if (!guildId || !channelId) return;
+    const channelName = channelId === '_all' ? 'all-channels' : (channels.find(c => c.id === channelId)?.name || channelId);
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+
+    let exporting = true;
+    try {
+      const r = await fetch(`/api/guild/${guildId}/messages/${channelId}/export`);
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      const allMessages = data.messages;
+
+      // Group messages by date
+      let currentDate = '';
+      let messagesHtml = '';
+
+      for (const m of allMessages) {
+        const d = msgDate(m.created_at);
+        if (d !== currentDate) {
+          currentDate = d;
+          messagesHtml += `<div class="date-sep"><span>${htmlEscape(d)}</span></div>`;
+        }
+
+        const isDeleted = m.deleted === 1;
+        const avatarUrl = m.avatar_url || '';
+        const displayName = m.display_name || m.username || m.author_id;
+        const username = m.username || m.author_id;
+
+        messagesHtml += `
+          <div class="msg" data-created="${m.created_at}">
+            <div class="msg-left">
+              ${avatarUrl ? `<img src="${htmlEscape(avatarUrl)}" alt="" class="avatar" />` : `<div class="avatar-placeholder"></div>`}
+            </div>
+            <div class="msg-body">
+              <div class="msg-head">
+                <span class="author">${htmlEscape(displayName)}</span>
+                <span class="time">${htmlEscape(msgTimestamp(m.created_at))}</span>
+                ${isDeleted ? '<span class="deleted">(deleted)</span>' : ''}
+              </div>
+              <div class="content">${htmlEscape(m.content || '[no text content]')}</div>
+            </div>
+          </div>`;
+      }
+
+      const guildName = guildId;
+
+      const inlineJs = `var reverseOrder = true;
+var msgs = document.getElementById('messages');
+
+function filterMessages() {
+  var q = document.getElementById('searchInput').value.toLowerCase();
+  var container = document.getElementById('messages');
+  var allMsgs = container.querySelectorAll('.msg');
+  var visibleCount = 0;
+  for (var i = 0; i < allMsgs.length; i++) {
+    var text = (allMsgs[i].textContent || '').toLowerCase();
+    var match = !q || text.indexOf(q) !== -1;
+    if (match) {
+      allMsgs[i].classList.remove('msg-hidden');
+      visibleCount++;
+    } else {
+      allMsgs[i].classList.add('msg-hidden');
+    }
+  }
+  // Hide date separators that have no visible messages after them
+  var seps = container.querySelectorAll('.date-sep');
+  for (var j = 0; j < seps.length; j++) {
+    var next = seps[j].nextElementSibling;
+    var hasVisible = false;
+    while (next) {
+      if (next.classList.contains('date-sep')) break;
+      if (!next.classList.contains('msg-hidden')) {
+        hasVisible = true;
+        break;
+      }
+      next = next.nextElementSibling;
+    }
+    if (q && !hasVisible) {
+      seps[j].classList.add('msg-hidden');
+    } else {
+      seps[j].classList.remove('msg-hidden');
+    }
+  }
+  document.getElementById('msgCount').textContent = visibleCount + ' / ' + allMsgs.length + ' messages';
+}
+
+function toggleOrder() {
+  var container = document.getElementById('messages');
+  reverseOrder = !reverseOrder;
+
+  // Collect all messages sorted by timestamp (ascending = oldest first)
+  var allMsgs = Array.from(document.querySelectorAll('#messages .msg')).sort(function(a, b) {
+    return parseInt(a.getAttribute('data-created')) - parseInt(b.getAttribute('data-created'));
+  });
+
+  // Remove all existing children (date separators) — but keep msg elements
+  while (container.firstChild) container.removeChild(container.firstChild);
+
+  if (reverseOrder) allMsgs.reverse();
+
+  // Rebuild: date separators + messages in order
+  var lastDate = null;
+  for (var i = 0; i < allMsgs.length; i++) {
+    var d = new Date(parseInt(allMsgs[i].getAttribute('data-created'))).toLocaleDateString();
+    if (d !== lastDate) {
+      var sep = document.createElement('div');
+      sep.className = 'date-sep';
+      var span = document.createElement('span');
+      span.textContent = d;
+      sep.appendChild(span);
+      container.appendChild(sep);
+      lastDate = d;
+    }
+    container.appendChild(allMsgs[i]);
+  }
+  document.getElementById('orderBtn').textContent = reverseOrder ? '▼ Newest first' : '▲ Oldest first';
+  filterMessages();
+}
+`;
+
+      var scriptTagStart = '<' + 'script>';
+      var scriptTagEnd = '<' + '/script>';
+
+      const fullHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>#${htmlEscape(channelName)} — ${htmlEscape(guildName)}</title>
+<style>
+  :root {
+    --bg: #141020;
+    --surface: #261E36;
+    --surface-alt: #382C4C;
+    --primary: #B450FF;
+    --text: #DCC8FF;
+    --text-muted: #8C78B4;
+    --danger: #88329C;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: system-ui, -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 1rem;
+    line-height: 1.4;
+  }
+  h1 {
+    color: var(--primary);
+    font-size: 1.25rem;
+    margin-bottom: 0.25rem;
+  }
+  .subtitle {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--surface-alt);
+  }
+  .controls {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls input {
+    flex: 1;
+    min-width: 120px;
+    background: var(--surface);
+    border: 1px solid var(--surface-alt);
+    border-radius: 4px;
+    padding: 0.4rem 0.6rem;
+    color: var(--text);
+    font-family: inherit;
+    font-size: 0.85rem;
+  }
+  .controls input:focus { outline: none; border-color: var(--primary); }
+  .controls input::placeholder { color: var(--text-muted); }
+  .controls button {
+    padding: 0.35rem 0.75rem;
+    border-radius: 4px;
+    border: 1px solid var(--surface-alt);
+    background: var(--surface);
+    color: var(--text);
+    cursor: pointer;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    min-width: 130px;
+  }
+  .controls button:hover { background: var(--primary); }
+  .controls .count {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-left: auto;
+  }
+  .date-sep {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 1.5rem 0 0.75rem;
+  }
+  .date-sep::before,
+  .date-sep::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--surface-alt);
+  }
+  .date-sep span {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  .msg {
+    display: flex;
+    gap: 0.6rem;
+    padding: 0.35rem 0.5rem;
+    border-radius: 4px;
+  }
+  .msg:hover { background: var(--surface); }
+  .msg-left { flex-shrink: 0; width: 32px; }
+  .avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; }
+  .avatar-placeholder { width: 32px; height: 32px; border-radius: 50%; background: var(--surface-alt); }
+  .msg-body { min-width: 0; flex: 1; }
+  .msg-head { display: flex; gap: 0.5rem; align-items: baseline; flex-wrap: wrap; }
+  .author { font-weight: 600; font-size: 0.85rem; color: var(--text-bright); }
+  .time { font-size: 0.7rem; color: var(--text-muted); }
+  .deleted { font-size: 0.65rem; color: var(--danger); font-weight: 600; text-transform: uppercase; }
+  .content { font-size: 0.85rem; margin-top: 0.1rem; word-break: break-word; white-space: pre-wrap; }
+  .msg-hidden { display: none; }
+  @media (max-width: 480px) {
+    body { padding: 0.5rem; }
+    h1 { font-size: 1.1rem; }
+    .msg { padding: 0.3rem 0.25rem; gap: 0.4rem; }
+    .msg-left { width: 28px; }
+    .avatar, .avatar-placeholder { width: 28px; height: 28px; }
+  }
+</style>
+</head>
+<body>
+<h1>#${htmlEscape(channelName)}</h1>
+<p class="subtitle">${htmlEscape(guildName)} — ${allMessages.length} messages — ${htmlEscape(ts)}</p>
+<div class="controls">
+  <input type="text" id="searchInput" placeholder="Search messages..." oninput="filterMessages()" />
+  <button onclick="toggleOrder()" id="orderBtn">▼ Newest first</button>
+  <span class="count" id="msgCount">${allMessages.length} / ${allMessages.length} messages</span>
+</div>
+<div id="messages">
+${messagesHtml}
+</div>
+` + scriptTagStart + inlineJs + scriptTagEnd + `
+</body>
+</html>`;
+
+      const blob = new Blob([fullHtml], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `messages-${htmlEscape(channelName)}-${ts}.html`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Export failed:', err);
+      alert('Failed to export: ' + err.message);
+    } finally {
+      exporting = false;
+    }
+  }
+
   async function deleteMessage(msg) {
     // If already deleted (from a prior session), just mark it in the DB without touching Discord
     if (msg.deleted === 1) {
@@ -242,9 +533,14 @@
     {/if}
     {#if authorId || hasUrl || hasImage || hasEveryone} <span style="color:var(--primary)">(filtered)</span>{/if}
   </div>
-  {#if messages.length > 0}
-    <button class="btn-sm" on:click={downloadMessages}>Export CSV</button>
-  {/if}
+  <span class="export-buttons">
+    {#if messages.length > 0}
+      <button class="btn-sm" on:click={downloadMessages}>Export CSV</button>
+    {/if}
+    {#if channelId}
+      <button class="btn-sm" on:click={exportChannelHtml}>Export HTML</button>
+    {/if}
+  </span>
 </div>
 
 <div class="msg-list">
@@ -301,6 +597,11 @@
     gap: 0.5rem;
     margin: 0.5rem 0;
     flex-wrap: wrap;
+  }
+  .export-buttons {
+    display: flex;
+    gap: 0.35rem;
+    flex-shrink: 0;
   }
   .status { color: var(--text-muted); font-size: 0.85rem; }
   .filters {

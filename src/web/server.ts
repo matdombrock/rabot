@@ -96,6 +96,29 @@ export function createWebServer(client: Client) {
     }
   });
 
+  // ── Export messages (full history, no pagination) ──
+
+  app.get("/api/guild/:guildId/messages/:channelId/export", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const conditions: string[] = [];
+      const params: any[] = [];
+
+      if (req.params.channelId !== "_all") {
+        conditions.push("m.channel_id = ?");
+        params.push(req.params.channelId);
+      }
+
+      const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+      const query = `SELECT m.id, m.channel_id, m.author_id, m.content, m.created_at, m.deleted, u.username, u.display_name, u.avatar_url FROM messages m LEFT JOIN members u ON m.author_id = u.id ${where} ORDER BY m.created_at DESC`;
+      const rows = db.prepare(query).all(...params);
+      res.json({ messages: rows });
+    } catch (err) {
+      console.error("Messages export failed:", err);
+      res.status(500).json({ error: "Failed to export messages" });
+    }
+  });
+
   // ── Delete message ──
 
   app.delete("/api/guild/:guildId/messages/:messageId", async (req, res) => {
