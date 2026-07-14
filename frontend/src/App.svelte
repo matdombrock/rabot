@@ -6,7 +6,6 @@
   import ImageFilter from './lib/ImageFilter.svelte'
   import TextFilter from './lib/TextFilter.svelte'
   import QuickReport from './lib/QuickReport.svelte'
-  import FullReport from './lib/FullReport.svelte'
   import RecentReports from './lib/RecentReports.svelte'
   import Messages from './lib/Messages.svelte'
   import ModLog from './lib/ModLog.svelte'
@@ -22,7 +21,6 @@
     { key: 'say', title: 'Say', description: 'Send messages to a channel with send history', component: Say },
     { key: 'image-filter', title: 'Image Filter', description: 'Manage SHA256 checksum watchlist and view moderation log', component: ImageFilter },
     { key: 'text-filter', title: 'Text Filter', description: 'Manage text pattern filters with warn/kick/ban actions', component: TextFilter },
-    { key: 'full-report', title: 'Full Report', description: 'Detailed member report with message stats from SQLite', component: FullReport },
     { key: 'recent-reports', title: 'Recent Reports', description: 'Browse, download, and delete generated reports and analyses', component: RecentReports },
     { key: 'messages', title: 'Messages', description: 'Browse per-channel message history with search, filters, and export', component: Messages },
     { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', component: ModLog },

@@ -221,10 +221,10 @@
         <input type="checkbox" bind:checked={hasEveryone} /> @everyone
       </label>
       <label class="filter-label">
-        <input type="checkbox" bind:checked={showDeleted} /> Show deleted
+        <input type="checkbox" bind:checked={showDeleted} on:change={doSearch} /> Show deleted
       </label>
       <label class="filter-label">
-        <input type="checkbox" bind:checked={deletedOnly} /> Deleted only
+        <input type="checkbox" bind:checked={deletedOnly} on:change={doSearch} /> Deleted only
       </label>
       <button class="btn-sm" on:click={() => { clearFilters(); doSearch(); }}>Clear</button>
     </div>
@@ -357,7 +357,6 @@
   .action-delete { color: var(--danger); }
   .action-delete:hover { background: var(--danger) !important; color: var(--text-bright); }
   .msg-content { color: var(--text); font-size: 0.85rem; margin-top: 0.15rem; word-break: break-word; white-space: pre-wrap; }
-  .msg-content.deleted-msg { color: var(--text-muted); text-decoration: line-through; }
   .deleted-tag { color: var(--danger); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
   .load-more-wrap { display: flex; justify-content: center; padding: 1rem; }
   .load-more { padding: 0.5rem 2rem; }

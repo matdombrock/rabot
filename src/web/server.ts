@@ -191,23 +191,6 @@ export function createWebServer(client: Client) {
     }
   });
 
-  app.get("/api/guild/:guildId/reports/user-report", async (req, res) => {
-    const guild = client.guilds.cache.get(req.params.guildId);
-    if (!guild) { res.status(404).json({ error: "Guild not found" }); return; }
-    try {
-      const { generateUserReport } = await import("../reports/user-report.js");
-      const result = await generateUserReport(guild);
-      const db = getGuildDb(req.params.guildId);
-      db.prepare("INSERT INTO reports (id, guild_name, type, generated, total_members, csv) VALUES (?, ?, ?, ?, ?, ?)").run(
-        crypto.randomUUID(), guild.name, "full", result.generated, result.totalMembers, result.csv
-      );
-      res.json(result);
-    } catch (err) {
-      console.error("Report generation failed:", err);
-      res.status(500).json({ error: "Failed to generate report" });
-    }
-  });
-
   // ── Say ──
 
   app.post("/api/guild/:guildId/send-message", async (req, res) => {
