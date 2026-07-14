@@ -6,6 +6,7 @@
   import ImageFilter from './lib/ImageFilter.svelte'
   import TextFilter from './lib/TextFilter.svelte'
   import QuickReport from './lib/QuickReport.svelte'
+  import UserAnalysis from './lib/UserAnalysis.svelte'
   import RecentReports from './lib/RecentReports.svelte'
   import Messages from './lib/Messages.svelte'
   import Analytics from './lib/Analytics.svelte'
@@ -20,7 +21,8 @@
   // Pane definitions — name must be unique and stable for localStorage keys
   const paneDefs = [
     { key: 'bot-status', title: 'Bot Status', description: 'Bot tag, Node version, uptime, WS latency, and ping', component: BotStatus },
-    { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns, filters, and user analysis', component: QuickReport, props: {} },
+    { key: 'user-analysis', title: 'User Analysis', description: 'Search, view, and manage per-user analyses', component: UserAnalysis },
+    { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns and filters', component: QuickReport, props: {} },
     { key: 'say', title: 'Say', description: 'Send messages to a channel with send history', component: Say },
     { key: 'image-filter', title: 'Image Filter', description: 'Manage SHA256 checksum watchlist and view moderation log', component: ImageFilter },
     { key: 'analytics', title: 'Analytics', description: 'Server stats, user activity, and message trends with charts', component: Analytics },
@@ -242,13 +244,23 @@
       {#if pane.key === 'user-list'}
         <Card
           title={pane.title}
-          description={pane.description}
+          description={dashboardSettings.showTips !== false ? pane.description : ''}
+          collapseAll={!!paneSearch}
+          collapsedState={paneCollapsed[pane.key]}
+          on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
+        >
+          <QuickReport {guildId} on:analyzeUser={(e) => onAnalyzeUser(e.detail)} />
+        </Card>
+      {:else if pane.key === 'user-analysis'}
+        <Card
+          title={pane.title}
+          description={dashboardSettings.showTips !== false ? pane.description : ''}
           expanded={!!analyzeUserId}
           collapseAll={!!paneSearch}
           collapsedState={paneCollapsed[pane.key]}
           on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
         >
-          <QuickReport {guildId} {analyzeUserId} />
+          <UserAnalysis {guildId} analyzeUserId={analyzeUserId} />
         </Card>
       {:else if pane.key === 'messages'}
         <Card
