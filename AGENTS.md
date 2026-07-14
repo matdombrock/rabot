@@ -37,14 +37,16 @@ Tables in `data.db`:
 | Table | Contents | Populated by |
 |---|---|---|
 | `messages` | Full message history (id, channelId, authorId, content, createdAt) | Live `messageCreate` + `npm run backfill` |
-| `members` | Member profiles (username, displayName, avatar, join dates, roles) | Live `messageCreate` + backfill |
-| `reports` | Saved reports and user analyses (CSV) | On generate |
+| `members` | Member profiles (username, displayName, avatar, join dates, roles, watched) | Live `messageCreate` + backfill |
+| `reports` | Saved reports, user scans, AI scans, channel summaries, guild scans | On generate |
 | `modlogs` | Image filter moderation actions | On ban/kick match |
 | `saylogs` | Say message history | On send |
 | `checksums` | Watched SHA256 checksums with labels | Via web panel |
 | `textfilters` | Text pattern filters (pattern, action, label) | Via web panel |
 | `textfilter_logs` | Text filter moderation log | On match |
-| `config` | Key/value settings (action: ban/kick) | Via web panel |
+| `config` | Key/value settings (action: ban/kick, aichat_enabled) | Via web panel |
+| `actionlogs` | Manual mod actions + audit log events | On action |
+| `ai_chat_log` | AI chat history (Q&A pairs) | On AI chat response |
 
 ## Always
 
@@ -73,16 +75,22 @@ src/
 ├── events/
 │   ├── ready.ts
 │   ├── interactionCreate.ts
-│   ├── messageCreate.ts     # Live message tracking + image checksum matching
-│   ├── messageDelete.ts     # Log all message deletions to actionlogs
+│   ├── messageCreate.ts           # Live message tracking + image checksum + text filter matching
+│   ├── messageCreateAiChat.ts     # AI chat responder (triggered by bot mention)
+│   ├── messageDelete.ts           # Log all message deletions to actionlogs
 │   └── guildAuditLogEntryCreate.ts # Track moderation actions via audit logs
 ├── checksum/
 │   └── compute.ts        # Streaming SHA256 from Discord CDN
 ├── helpers/
 │   └── deleteMessages.ts # Purge all messages from a user
 ├── reports/
-│   ├── quick-report.ts   # Live member list (40s TTL cache)
-│   └── user-analysis.ts  # Per-user analysis from SQLite
+│   ├── quick-report.ts        # Live member list (40s TTL cache) with member/online counts
+│   ├── user-analysis.ts       # Per-user analysis from SQLite
+│   ├── ai-scan.ts             # AI user scan with structured output scoring
+│   ├── ai-channel-summary.ts  # AI channel summary with caching
+│   ├── ai-guild-scan.ts       # AI guild-wide scan for suspicious users
+│   ├── ai-chat-prompt.txt     # Prompt for AI chat feature
+│   └── prompts/               # LLM prompt text files
 └── web/
     ├── server.ts         # Express API + static file server
     └── public/           # Built frontend (generated)
@@ -102,11 +110,13 @@ frontend/
         ├── UserAnalysis.svelte   # Per-user scan with details, past scans, and view messages
         ├── UserSearchBox.svelte  # Reusable user autocomplete with avatar
         ├── AvatarPopup.svelte    # Avatar lightbox with copy/save
-        ├── Analytics.svelte      # Server stats with Chart.js charts
-        ├── Settings.svelte       # Dashboard/bot settings (localStorage + DB)
-        ├── ModLog.svelte         # Action log for mod actions and audit events
-        ├── RecentReports.svelte  # Saved scan history
-        └── Messages.svelte       # Per-channel message browser with pagination, filters, search, CSV export, HTML export
+        ├── Analytics.svelte         # Server stats with Chart.js charts (8 charts, drag-to-reorder)
+        ├── ChannelSummary.svelte    # AI-powered channel summary with caching
+        ├── GuildScan.svelte         # AI guild-wide malicious user scan
+        ├── AiChat.svelte            # AI chat toggle and history
+        ├── Settings.svelte          # Dashboard/bot settings (localStorage + DB)
+        ├── ModLog.svelte            # Action log for mod actions and audit events
+        └── Messages.svelte          # Per-channel message browser with pagination, filters, search, CSV export, HTML export
 ```
 
 ## Key Patterns
@@ -114,7 +124,7 @@ frontend/
 - **Web panel** is a Svelte SPA — all data fetching via `fetch()` to the Express API on the same origin
 - **Guild ID** is entered at the top of the page, passed to all panels as a prop. Last used guild ID is persisted to `localStorage` and restored on page load.
 - **Card collapse** — the entire `.card-header` is clickable to collapse/expand each panel. Cards support `expanded`, `collapseAll`, and `forceOpen` props.
-- **Drag-and-drop reorder** — panes can be reordered via drag handle. Order persisted to `dbot-pane-order` in localStorage.
+- **Drag-and-drop reorder** — panes can be reordered via drag handle using SortableJS (works on desktop and mobile). Order persisted to `rb-zero-pane-order` in localStorage. Analytics charts also have SortableJS reorder with a lock/unlock toggle.
 - **Responsive** — shared CSS utilities (`.table-scroll`, `.row`, `.add-row`, `.btn-sm`) in `app.css` with mobile breakpoints at 640px. Tables use horizontal scroll. `.add-row` stacks vertically on mobile. Guild info section hides below 700px.
 - **Messages CSV export** — exported client-side from the currently loaded message array.
 - **Messages HTML export** — standalone HTML file with search, date grouping, and newest/oldest toggle.
@@ -126,6 +136,12 @@ frontend/
 - **Backfill** uses batched inserts via `db.transaction()` and `INSERT OR IGNORE` for idempotency
 - **CSS theming** via `var(--primary)`, `var(--surface)`, etc. in `frontend/src/app.css`. Never hardcode colors in components.
 - **Font Awesome** via `@fortawesome/fontawesome-free` — icons used in pane headers and various controls.
-- **Chart.js** for analytics charts (messages/day, new users/day) with date range and interval controls.
-- **Settings** stored in `dbot-settings` in localStorage: `showTips` (toggle pane descriptions), `showQuickSearch`.
+- **Chart.js** for analytics charts (8 charts: messages/day, new users/day, messages per channel pie, DOW, top posters, activity by hour, deleted vs active, role distribution). Date range selector, timezone display. Lock/unlock toggle for chart reordering.
+- **Settings** stored in `rb-zero-settings` in localStorage: `showTips` (toggle pane descriptions), `showQuickSearch`.
 - **Avatar popup** — clicking any avatar shows a lightbox with `?size=512` version, copy URL, and save buttons.
+- **AI Scan** — user scan with 5 structured scores (risk, nice, weird, spammer, AI/LLM). Auto-loads cached results. Force re-scan button.
+- **AI Channel Summary** — auto-loads cached summary on channel select. Force re-summarize button. Shows channel name, message count, fresh/cached badge.
+- **AI Guild Scan** — scans all channels for suspicious users. Caching with new-message detection.
+- **AI Chat** — toggle to enable/disable. When enabled, mentioning the bot triggers an AI response using recent channel context. Responses prefixed with `**LLM OUTPUT:**`. 30-second timeout. Chat history visible in pane with delete (removes from Discord too).
+- **Config via `src/config.json`** — port, Discord credentials, OpenRouter API key/model, AI scan truncation/temperature settings. `.env` no longer used.
+- **Database** — stores AI scans, channel summaries, guild scans, and AI chat logs in the `reports` and `ai_chat_log` tables. Old env files removed.

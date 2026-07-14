@@ -7,17 +7,25 @@ A Discord bot with a Svelte web control panel. Moderates images via SHA256 check
 ```bash
 npm install
 cd frontend && npm install && cd ..
-cp .env.example .env
+cp src/config.example.json src/config.json
+# Edit src/config.json with your Discord token and client ID
 ```
 
-### Environment Variables
+### Configuration
 
-| Variable | Required | Description |
+All configuration is in `src/config.json`. See `src/config.example.json` for the template.
+
+| Field | Required | Description |
 |---|---|---|
-| `DISCORD_TOKEN` | Yes | Bot token from the Discord Developer Portal |
-| `CLIENT_ID` | Yes | Application/client ID from the Developer Portal |
-| `GUILD_ID` | No | Server ID for targeted backfill |
-| `PORT` | No | Web panel port (default: `3000`) |
+| `discord.token` | Yes | Bot token from the Discord Developer Portal |
+| `discord.clientId` | Yes | Application/client ID from the Developer Portal |
+| `discord.guildId` | No | Server ID for targeted commands |
+| `port` | No | Web panel port (default: `3000`) |
+| `openrouter.apiKey` | No | OpenRouter API key (required for AI features) |
+| `openrouter.model` | No | LLM model ID (default: `deepseek/deepseek-v4-flash`) |
+| `aiScan.truncate` | No | Max chars for message context (default: `8000`) |
+| `aiScan.maxTokens` | No | Max tokens in AI response (default: `1000`) |
+| `aiScan.temperature` | No | AI temperature (default: `0.3`) |
 
 ### Required Intents
 
@@ -44,7 +52,7 @@ npm run typecheck
 | Command | Permission | Description |
 |---|---|---|
 | `/ping` | Everyone | Pong! |
-| `/info` | Everyone | Bot info (Node.js version, uptime, LLM model) |
+| `/info` | Everyone | Bot info (Node.js version, uptime) |
 
 ## Web Control Panel
 
@@ -57,16 +65,18 @@ Enter a guild ID at the top to scope all panels to that server.
 | Panel | Description |
 |---|---|
 | **Bot Status** | Bot tag, Node version, uptime, WS latency, and a Ping button |
-| **User Scan** | Search users, view detailed profiles (join dates, roles, message stats), and manage past scans. Click **Scan** from the User List or use the search box |
-| **User List** | All guild members with avatars, display names, roles, days in server, member count, and online count. Supports sortable columns, name/role filters. Click **Scan** to open User Scan pane |
+| **User Scan** | Search users, view detailed profiles (join dates, roles, message stats, AI scan with 5 scores), manage past scans. Click **Scan** from User List |
+| **User List** | All guild members with sortable columns, name/role filters, member/online count, Watch toggle per user, Watch List filter |
 | **Say** | Send messages to a channel with send history and delete-from-server |
-| **Image Filter** | Manage SHA256 checksum watchlist. Matched images trigger ban/kick and purge all user messages. Log of all actions shown |
-| **Text Filter** | Manage text pattern filters with warn/kick/ban actions and action log |
-| **Analytics** | Server stats with charts: messages per day, new users per day. Configurable date range and interval |
-| **Recent Reports** | Browse, download, and delete saved scans |
+| **AI Channel Summary** | AI-powered summary of recent channel activity with caching and force re-summarize |
+| **AI Guild Scan** | Scan all channels for potentially malicious users with caching |
+| **AI Chat** | Toggle to let users chat with AI by mentioning the bot. Chat history with delete |
+| **Image Filter** | SHA256 checksum watchlist, ban/kick on match, moderation log |
+| **Text Filter** | Text pattern filters with warn/kick/ban actions and action log |
+| **Analytics** | 8 charts: messages/day, new users/day, messages per channel pie, DOW, top posters, activity by hour, deleted vs active, role distribution. Date range selector. Drag-to-reorder with lock toggle |
 | **Messages** | Browse per-channel message history with search, filters (author, URL, image, @everyone, deleted), CSV/HTML export, per-message delete |
-| **Mod Log** | Track manual message deletions and audit log events (kicks, bans, channel changes, automod) |
-| **Settings** | Configure dashboard: toggle pane tips, quick search, reset pane order, reset all localStorage data |
+| **Mod Log** | Track manual message deletions and audit log events |
+| **Settings** | Dashboard: show tips, show quick search, reset pane order, reset all data. Bot: placeholder |
 
 ### User Scan
 
@@ -79,7 +89,7 @@ Click **Scan** on any user in the User List, or use the search box in the User S
 - Boosting status and bot flag
 - Total messages and last post date (from SQLite)
 
-From the scan results, you can **View Messages** to jump to the Messages pane with the user pre-filtered. Every scan is saved and accessible via the past scans list.
+From the scan results, you can **View Messages** to jump to the Messages pane with the user pre-filtered. The **AI Scan** button runs a structured AI analysis with 5 scores: risk, nice, weird, spammer, AI/LLM (each 1-10). Results are cached — no new API call unless the user has sent new messages since the last scan. Every scan is saved and accessible via the past scans list.
 
 ### Image Filter Details
 
@@ -106,7 +116,8 @@ Two storage layers:
 | `checksums` | Watched SHA256 checksums with labels | Via web panel |
 | `textfilters` | Text pattern filters (pattern, action, label) | Via web panel |
 | `textfilter_logs` | Text filter moderation log | On match |
-| `config` | Key/value settings (action: ban/kick) | Via web panel |
+| `config` | Key/value settings (action, aichat_enabled) | Via web panel |
+| `ai_chat_log` | AI chat history (Q&A pairs) | On AI chat response |
 
 Run `npm run backfill` once to scan all text channels and populate the message history. Set `GUILD_ID` in `.env` to target a single guild.
 
@@ -124,16 +135,21 @@ src/
 ├── events/
 │   ├── ready.ts
 │   ├── interactionCreate.ts
-│   ├── messageCreate.ts        # Live message tracking + image checksum + text filter matching
-│   ├── messageDelete.ts        # Log all message deletions to actionlogs
+│   ├── messageCreate.ts           # Live message tracking + image checksum + text filter matching
+│   ├── messageCreateAiChat.ts     # AI chat responder on bot mention
+│   ├── messageDelete.ts           # Log all message deletions to actionlogs
 │   └── guildAuditLogEntryCreate.ts # Track moderation actions via audit logs
 ├── checksum/
 │   └── compute.ts        # Streaming SHA256 from Discord CDN
 ├── helpers/
 │   └── deleteMessages.ts # Purge all messages from a user
 ├── reports/
-│   ├── quick-report.ts   # Live member list (40s TTL cache) with member/online counts
-│   └── user-analysis.ts  # Per-user analysis from SQLite
+│   ├── quick-report.ts        # Live member list (40s TTL cache)
+│   ├── user-analysis.ts       # Per-user analysis from SQLite
+│   ├── ai-scan.ts             # AI user scan with structured output
+│   ├── ai-channel-summary.ts  # AI channel summary with caching
+│   ├── ai-guild-scan.ts       # AI guild-wide scan
+│   └── prompts/               # LLM prompt text files
 └── web/
     ├── server.ts         # Express API + static file server
     └── public/           # Built frontend (generated)
@@ -153,11 +169,13 @@ frontend/
         ├── UserAnalysis.svelte   # Per-user scan with details, past scans, view messages
         ├── UserSearchBox.svelte  # Reusable user autocomplete with avatar icon
         ├── AvatarPopup.svelte    # Avatar lightbox with copy/save
-        ├── Analytics.svelte      # Server stats with Chart.js charts
-        ├── Settings.svelte       # Dashboard/bot settings
-        ├── ModLog.svelte         # Action log for mod actions and audit events
-        ├── RecentReports.svelte  # Saved scan history
-        └── Messages.svelte       # Message browser with filters, search, CSV/HTML export, delete
+        ├── Analytics.svelte         # Server stats with 8 Chart.js charts, drag-to-reorder
+        ├── ChannelSummary.svelte    # AI-powered channel summary with caching
+        ├── GuildScan.svelte         # AI guild-wide malicious user scan
+        ├── AiChat.svelte            # AI chat toggle and history
+        ├── Settings.svelte          # Dashboard/bot settings
+        ├── ModLog.svelte            # Action log for mod actions and audit events
+        └── Messages.svelte          # Message browser with filters, search, CSV/HTML export, delete
 ```
 
 ## Frontend Development
@@ -186,27 +204,39 @@ Shared CSS utilities in `app.css` handle responsive layout:
 
 ### Card Collapse
 
-Every panel card can be collapsed by clicking its header. The User Analysis section inside the User List card has its own independent collapse state, separate from the parent card.
+Every panel card can be collapsed by clicking its header. Cards support `expanded`, `collapseAll`, and `forceOpen` props.
+
+### Drag-and-Drop Reorder
+
+Panes are reorderable via drag handle using SortableJS (desktop + mobile). Order is persisted to `rb-zero-pane-order` in localStorage. Analytics charts have their own SortableJS reorder with a lock/unlock toggle.
 
 ### State Persistence
 
 The following is persisted to `localStorage`:
-- `dbot-last-guild-id` — last used guild ID
-- `dbot-pane-order` — drag-and-drop pane ordering
-- `dbot-pane-state` — collapsed/expanded state per pane
-- `dbot-settings` — dashboard settings (showTips, showQuickSearch)
+- `rb-zero-last-guild-id` — last used guild ID
+- `rb-zero-pane-order` — drag-and-drop pane ordering
+- `rb-zero-pane-state` — collapsed/expanded state per pane
+- `rb-zero-settings` — dashboard settings (showTips, showQuickSearch)
 
 ### Sticky Header
 
-The header (title, guild selector, guild info) is sticky at the top of the viewport. On screens wider than 700px, the right side shows the guild icon (56px), name, total member count, and online count (from `approximate_presence_count` via REST API — no privileged intent needed).
+The header (title, guild selector, guild info) is sticky at the top. On screens wider than 700px, the right side shows guild icon (56px), name, total member count, and online count (from `approximate_presence_count` via REST API — no privileged intent needed). Settings gear icon opens the Settings pane.
 
 ### Icons
 
-Pane headers use Font Awesome icons. Imported via `@fortawesome/fontawesome-free` in `main.js`.
+Pane headers use Font Awesome icons via `@fortawesome/fontawesome-free`.
 
 ### Avatar Popup
 
 Clicking any user avatar opens a lightbox with the image at 512px resolution, plus Copy URL and Save buttons.
+
+### AI Features
+
+All AI features use OpenRouter API. API key and model configured in `src/config.json`. Features include:
+- **AI Scan** — per-user analysis with 5 structured scores (risk, nice, weird, spammer, AI/LLM). Caches results; force re-scan button.
+- **AI Channel Summary** — summarizes recent channel activity. Auto-loads cached result when channel is selected.
+- **AI Guild Scan** — scans all channels for suspicious users. Caches based on newest message timestamp.
+- **AI Chat** — toggle to enable. Users mention the bot to get AI responses using recent channel context. 30-second timeout. Chat history visible in the pane with Discord message deletion.
 
 ## Adding Slash Commands
 
