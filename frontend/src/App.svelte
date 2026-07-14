@@ -20,17 +20,17 @@
 
   // Pane definitions — name must be unique and stable for localStorage keys
   const paneDefs = [
-    { key: 'bot-status', title: 'Bot Status', description: 'Bot tag, Node version, uptime, WS latency, and ping', component: BotStatus },
-    { key: 'user-analysis', title: 'User Analysis', description: 'Search, view, and manage per-user analyses', component: UserAnalysis },
-    { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns and filters', component: QuickReport, props: {} },
-    { key: 'say', title: 'Say', description: 'Send messages to a channel with send history', component: Say },
-    { key: 'image-filter', title: 'Image Filter', description: 'Manage SHA256 checksum watchlist and view moderation log', component: ImageFilter },
-    { key: 'analytics', title: 'Analytics', description: 'Server stats, user activity, and message trends with charts', component: Analytics },
-    { key: 'text-filter', title: 'Text Filter', description: 'Manage text pattern filters with warn/kick/ban actions', component: TextFilter },
-    { key: 'recent-reports', title: 'Recent Reports', description: 'Browse, download, and delete generated reports and analyses', component: RecentReports },
-    { key: 'messages', title: 'Messages', description: 'Browse per-channel message history with search, filters, and export', component: Messages },
-    { key: 'settings', title: 'Settings', description: 'Configure dashboard and bot settings', component: Settings },
-    { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', component: ModLog },
+    { key: 'bot-status', title: 'Bot Status', description: 'Bot tag, Node version, uptime, WS latency, and ping', icon: 'fa-robot', component: BotStatus },
+    { key: 'user-analysis', title: 'User Analysis', description: 'Search, view, and manage per-user analyses', icon: 'fa-magnifying-glass', component: UserAnalysis },
+    { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns and filters', icon: 'fa-users', component: QuickReport, props: {} },
+    { key: 'say', title: 'Say', description: 'Send messages to a channel with send history', icon: 'fa-comment', component: Say },
+    { key: 'image-filter', title: 'Image Filter', description: 'Manage SHA256 checksum watchlist and view moderation log', icon: 'fa-image', component: ImageFilter },
+    { key: 'analytics', title: 'Analytics', description: 'Server stats, user activity, and message trends with charts', icon: 'fa-chart-simple', component: Analytics },
+    { key: 'text-filter', title: 'Text Filter', description: 'Manage text pattern filters with warn/kick/ban actions', icon: 'fa-font', component: TextFilter },
+    { key: 'recent-reports', title: 'Recent Reports', description: 'Browse, download, and delete generated reports and analyses', icon: 'fa-clock-rotate-left', component: RecentReports },
+    { key: 'messages', title: 'Messages', description: 'Browse per-channel message history with search, filters, and export', icon: 'fa-message', component: Messages },
+    { key: 'settings', title: 'Settings', description: 'Configure dashboard and bot settings', icon: 'fa-gear', component: Settings },
+    { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', icon: 'fa-shield', component: ModLog },
   ];
 
   // Map for quick lookup
@@ -52,6 +52,7 @@
   // Drag state
   let dragIndex = -1;
   let dragOverIndex = -1;
+  let focusPaneKey = '';
 
   $: visible = (title) => !paneSearch || title.toLowerCase().includes(paneSearch.toLowerCase());
 
@@ -60,6 +61,16 @@
 
   function onAnalyzeUser(id) {
     analyzeUserId = id;
+  }
+
+  function focusSettings() {
+    focusPaneKey = 'settings';
+    paneCollapsed = { ...paneCollapsed, settings: false };
+    saveState();
+    // Scroll to settings pane
+    setTimeout(() => {
+      document.querySelector('.pane-content [data-pane="settings"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 100);
   }
 
   function saveGuildId(id) {
@@ -138,6 +149,10 @@
   function onCollapsedChange(key, collapsed) {
     paneCollapsed = { ...paneCollapsed, [key]: collapsed };
     saveState();
+    // Clear focus after first collapse change
+    if (key === 'settings' && focusPaneKey === 'settings') {
+      focusPaneKey = '';
+    }
   }
 
   // ── Drag and drop ──
@@ -195,34 +210,55 @@
   $: if (ready && guildId) saveGuildId(guildId);
   $: selectedGuild = guilds.find(g => g.id === guildId);
   $: iconUrl = selectedGuild?.icon ? `https://cdn.discordapp.com/icons/${selectedGuild.id}/${selectedGuild.icon}.png` : null;
+  $: memberCount = selectedGuild?.memberCount ?? null;
+  $: onlineCount = selectedGuild?.onlineCount ?? null;
 </script>
 
-<h1>Bot Control Panel</h1>
+<header class="sticky-header">
+  <div class="header-top">
+    <h1>Bot Control Panel</h1>
+    <button class="header-settings-btn" on:click={focusSettings} title="Settings">
+      <i class="fa-solid fa-gear"></i>
+    </button>
+  </div>
 
-<div class="guild-bar">
-  <div class="guild-row">
-    <label for="guild-id">Guild ID:</label>
-    <input id="guild-id" type="text" placeholder="Enter guild ID..." bind:value={guildId} />
-    {#if iconUrl}
-      <img src={iconUrl} alt={selectedGuild.name} class="guild-icon" />
-    {/if}
-    {#if selectedGuild}
-      <span class="guild-name">{selectedGuild.name}</span>
-    {/if}
+  <div class="guild-bar">
+    <div class="guild-bar-main">
+      <div class="guild-inputs">
+        <div class="guild-row">
+          <label for="guild-id">Guild ID:</label>
+          <input id="guild-id" type="text" placeholder="Enter guild ID..." bind:value={guildId} />
+        </div>
+        <div class="guild-row">
+          <label for="guild-select">Select guild:</label>
+          <select id="guild-select" on:change={(e) => { guildId = e.target.value; saveGuildId(e.target.value); }}>
+            <option value="">-- choose a guild --</option>
+            {#each guilds as g}
+              <option value={g.id}>{g.name}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+      {#if selectedGuild}
+        <div class="guild-info">
+          {#if iconUrl}
+            <img src={iconUrl} alt={selectedGuild.name} class="guild-icon-large" />
+          {/if}
+          <div class="guild-details">
+            <span class="guild-name">{selectedGuild.name}</span>
+            <div class="guild-stats">
+              <span class="guild-stat"><i class="fa-solid fa-user"></i> {memberCount?.toLocaleString() ?? '...'}</span>
+              <span class="guild-stat online"><i class="fa-solid fa-circle"></i> {onlineCount?.toLocaleString() ?? '...'}</span>
+            </div>
+          </div>
+        </div>
+      {/if}
+    </div>
   </div>
-  <div class="guild-row">
-    <label for="guild-select">Select guild:</label>
-    <select id="guild-select" on:change={(e) => { guildId = e.target.value; saveGuildId(e.target.value); }}>
-      <option value="">-- choose a guild --</option>
-      {#each guilds as g}
-        <option value={g.id}>{g.name}</option>
-      {/each}
-    </select>
-  </div>
-</div>
+</header>
 
 {#if dashboardSettings.showQuickSearch !== false}
-<Card title="Quick Search" expanded={true}>
+<Card title="Quick Search" icon="fa-magnifying-glass" expanded={true}>
   <input type="text" placeholder="Type to filter panes..." bind:value={paneSearch} class="pane-search-input" />
 </Card>
 {/if}
@@ -244,6 +280,7 @@
       {#if pane.key === 'user-list'}
         <Card
           title={pane.title}
+          icon={pane.icon}
           description={dashboardSettings.showTips !== false ? pane.description : ''}
           collapseAll={!!paneSearch}
           collapsedState={paneCollapsed[pane.key]}
@@ -254,6 +291,7 @@
       {:else if pane.key === 'user-analysis'}
         <Card
           title={pane.title}
+          icon={pane.icon}
           description={dashboardSettings.showTips !== false ? pane.description : ''}
           expanded={!!analyzeUserId}
           collapseAll={!!paneSearch}
@@ -265,6 +303,7 @@
       {:else if pane.key === 'messages'}
         <Card
           title={pane.title}
+          icon={pane.icon}
           description={pane.description}
           collapseAll={!!paneSearch}
           collapsedState={paneCollapsed[pane.key]}
@@ -275,16 +314,21 @@
       {:else if pane.key === 'settings'}
         <Card
           title={pane.title}
+          icon={pane.icon}
           description={dashboardSettings.showTips !== false ? pane.description : ''}
+          expanded={focusPaneKey === 'settings'}
           collapseAll={!!paneSearch}
           collapsedState={paneCollapsed[pane.key]}
           on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
         >
-          <Settings {guildId} settings={dashboardSettings} on:change={onSettingChange} on:resetOrder={onResetOrder} on:resetAll={onResetAll} />
+          <div data-pane="settings">
+            <Settings {guildId} settings={dashboardSettings} on:change={onSettingChange} on:resetOrder={onResetOrder} on:resetAll={onResetAll} />
+          </div>
         </Card>
       {:else}
         <Card
           title={pane.title}
+          icon={pane.icon}
           description={dashboardSettings.showTips !== false ? pane.description : ''}
           collapseAll={!!paneSearch}
           collapsedState={paneCollapsed[pane.key]}
@@ -298,14 +342,58 @@
 {/each}
 
 <style>
+  .sticky-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--background);
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+  }
+  .header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .header-top h1 {
+    margin-bottom: 0;
+  }
+  .header-settings-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+    padding: 0.35rem;
+    border-radius: 4px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .header-settings-btn:hover {
+    color: var(--text-bright);
+    background: var(--surface);
+  }
   .guild-bar {
-    margin-bottom: 1.5rem;
     padding: 0.75rem 1rem;
     background: var(--surface);
     border-radius: 8px;
+  }
+  .guild-bar-main {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+  }
+  .guild-inputs {
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 0.4rem;
+    flex: 1;
+    min-width: 0;
   }
   .guild-row {
     display: flex;
@@ -316,6 +404,7 @@
     color: var(--text-muted);
     font-size: 0.9rem;
     white-space: nowrap;
+    min-width: fit-content;
   }
   .guild-row input {
     flex: 1;
@@ -327,16 +416,50 @@
   .guild-row select {
     flex: 1;
   }
-  .guild-icon {
-    width: 28px;
-    height: 28px;
+  .guild-info {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+  }
+  .guild-icon-large {
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
     object-fit: cover;
-    flex-shrink: 0;
+  }
+  .guild-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
   }
   .guild-name {
     color: var(--text-bright);
-    font-size: 0.95rem;
+    font-size: 1.2rem;
+    font-weight: 700;
+  }
+  .guild-stats {
+    display: flex;
+    gap: 1rem;
+  }
+  .guild-stat {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .guild-stat i {
+    font-size: 0.7rem;
+  }
+  .guild-stat.online i {
+    color: #23a55a;
+  }
+
+  @media (max-width: 700px) {
+    .guild-info {
+      display: none;
+    }
   }
 
   .pane {

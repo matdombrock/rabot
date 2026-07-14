@@ -14,6 +14,7 @@ export interface QuickReportResult {
   guildName: string;
   generated: string;
   totalMembers: number;
+  onlineCount: number;
   csv: string;
 }
 
@@ -23,6 +24,14 @@ export async function generateQuickReport(guild: Guild): Promise<QuickReportResu
     await guild.members.fetch();
     memberCache.set(guild.id, { fetchedAt: Date.now() });
   }
+
+  // Fetch guild from REST API for approximate_presence_count
+  // (available without GuildPresences privileged intent)
+  let onlineCount = 0;
+  try {
+    const fetched = await guild.fetch();
+    onlineCount = fetched.approximatePresenceCount ?? 0;
+  } catch {}
 
   const members = guild.members.cache;
   const now = Date.now();
@@ -52,6 +61,7 @@ export async function generateQuickReport(guild: Guild): Promise<QuickReportResu
     guildName: guild.name,
     generated: new Date().toISOString(),
     totalMembers: members.size,
+    onlineCount,
     csv: rows.join("\n"),
   };
 }

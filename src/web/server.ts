@@ -17,7 +17,22 @@ export function createWebServer(client: Client) {
   // ── Global routes ──
 
   app.get("/api/guilds", async (_req, res) => {
-    const guilds = client.guilds.cache.map((g) => ({ id: g.id, name: g.name, icon: g.icon }));
+    const guilds = await Promise.all(client.guilds.cache.map(async (g) => {
+      // Fetch guild from REST API to get approximate_presence_count
+      // This field is available without the GuildPresences privileged intent
+      let onlineCount = 0;
+      try {
+        const fetched = await g.fetch();
+        onlineCount = fetched.approximatePresenceCount ?? 0;
+      } catch {}
+      return {
+        id: g.id,
+        name: g.name,
+        icon: g.icon,
+        memberCount: g.memberCount,
+        onlineCount,
+      };
+    }));
     res.json(guilds);
   });
 

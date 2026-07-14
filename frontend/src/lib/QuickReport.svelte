@@ -10,6 +10,8 @@
   let status = '';
   let csv = '';
   let guildName = '';
+  let totalMembers = 0;
+  let onlineCount = 0;
   let nameFilter = '';
   let roleInput = '';
   let roleFilter = '';
@@ -94,9 +96,11 @@
       const r = await fetch(`/api/guild/${guildId}/reports/quick-report`);
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
-      status = `${data.guildName} — ${data.totalMembers} members — ${data.generated}`;
+      status = `${data.generated}`;
       csv = data.csv;
       guildName = data.guildName;
+      totalMembers = data.totalMembers;
+      onlineCount = data.onlineCount;
       const lines = csv.split('\n').filter(l => l.trim());
       if (lines.length > 1) {
         rawData = lines.slice(1).map(l => parseRow(l));
@@ -186,7 +190,13 @@
   {/if}
 </div>
 
-<div class="status">{status}</div>
+{#if guildName}
+  <div class="guild-stats-bar">
+    <span class="guild-stat"><i class="fa-solid fa-user"></i> {totalMembers.toLocaleString()} members</span>
+    <span class="guild-stat online"><i class="fa-solid fa-circle"></i> {onlineCount.toLocaleString()} online</span>
+    <span class="guild-stat-date">{status}</span>
+  </div>
+{/if}
 
 <div class="table-scroll">
   {#if headers.length > 0}
@@ -216,6 +226,32 @@
 </div>
 
 <style>
+  .guild-stats-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin: 0.5rem 0;
+    flex-wrap: wrap;
+  }
+  .guild-stat {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+  }
+  .guild-stat i {
+    font-size: 0.65rem;
+  }
+  .guild-stat.online i {
+    color: #23a55a;
+  }
+  .guild-stat-date {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    opacity: 0.6;
+    margin-left: auto;
+  }
   .table-scroll { margin-top: 1rem; max-height: 70vh; }
   .responsive-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
   .responsive-table th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; cursor: pointer; user-select: none; color: var(--text); }

@@ -4,6 +4,7 @@
 
   let collapsed = true;
   export let title = "";
+  export let icon = "";
   export let description = "";
   export let expanded = false;
   export let collapseAll = false;
@@ -31,7 +32,7 @@
 <div class="card" class:collapsed>
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="card-header" on:click={toggle}>
-    <h2>{title}</h2>
+    <h2>{#if icon}<i class="fa-solid {icon}"></i> {/if}{title}</h2>
     <span class="collapse-icon">{collapsed ? '▾' : '▴'}</span>
   </div>
   <div class="card-body" class:collapsed>
@@ -73,6 +74,15 @@
     font-size: 1rem;
     word-break: break-word;
     hyphens: auto;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .card-header h2 i {
+    width: 1rem;
+    text-align: center;
+    font-size: 0.85rem;
+    opacity: 0.6;
   }
   .card-desc {
     margin-bottom: 0.75rem;
