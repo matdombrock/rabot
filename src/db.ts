@@ -9,7 +9,7 @@ export interface ReportRecord {
   id: string;
   guildId: string;
   guildName: string;
-  type: "full" | "quick";
+  type: "full" | "analysis";
   generated: string;
   totalMembers: number;
   csv: string;

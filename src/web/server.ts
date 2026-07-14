@@ -199,6 +199,31 @@ export function createWebServer(client: Client) {
 
   // ── Image check ──
 
+  app.get("/api/guild/:guildId/user-analysis/:userId", async (req, res) => {
+    const guild = client.guilds.cache.get(req.params.guildId);
+    if (!guild) { res.status(404).json({ error: "Guild not found" }); return; }
+    try {
+      const { generateUserAnalysis } = await import("../reports/user-analysis.js");
+      const result = await generateUserAnalysis(guild, req.params.userId);
+      const db = getGuildDb(req.params.guildId);
+      await db.reports.read();
+      db.reports.data.reports.push({
+        id: crypto.randomUUID(),
+        guildId: guild.id,
+        guildName: guild.name,
+        type: "analysis",
+        generated: result.generated,
+        totalMembers: 1,
+        csv: result.csv,
+      });
+      await db.reports.write();
+      res.json(result);
+    } catch (err) {
+      console.error("User analysis failed:", err);
+      res.status(500).json({ error: "Failed to analyze user" });
+    }
+  });
+
   app.get("/api/guild/:guildId/checksums", async (req, res) => {
     const db = getGuildDb(req.params.guildId);
     await db.imageCheck.read();

@@ -79,6 +79,14 @@
     rows = applySort(filteredData(), sortCol, sortAsc);
   }
 
+  function copyRow(row) {
+    const [avatar, username, displayName, topRole, days] = row;
+    const text = `${username} (${displayName}) — ${topRole} — ${days} days`;
+    navigator.clipboard.writeText(text);
+    status = `Copied: ${text}`;
+    setTimeout(() => { status = `${guildName} — ${filteredData().length} members`; }, 2000);
+  }
+
   async function run() {
     if (!guildId) return;
     loading = true;
@@ -88,9 +96,9 @@
       const r = await fetch(`/api/guild/${guildId}/reports/${endpoint}`);
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
+      guildName = data.guildName;
       status = `${data.guildName} — ${data.totalMembers} members — ${data.generated}`;
       csv = data.csv;
-      guildName = data.guildName;
     } catch (err) {
       status = 'Error: ' + err.message;
     } finally {
@@ -141,9 +149,9 @@
       </thead>
       <tbody>
         {#each rows as row}
-          <tr>
+          <tr class="clickable" on:click={() => copyRow(row)}>
             {#each row as cell}
-              <td>{cell}</td>
+              <td>{#if cell.startsWith('https://cdn.discordapp.com/')}<img src={cell} alt="" class="avatar" />{:else}{cell}{/if}</td>
             {/each}
           </tr>
         {/each}
@@ -166,4 +174,6 @@
   th.sort-desc::after { content: " \25BC"; opacity: 1; }
   td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }
   tr:hover td { background: var(--surface-alt); }
+  tr.clickable { cursor: pointer; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; vertical-align: middle; }
 </style>

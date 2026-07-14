@@ -48,16 +48,16 @@
   <BotStatus />
 </Card>
 
+<Card title="User List">
+  <QuickReport {guildId} />
+</Card>
+
 <Card title="Say">
   <Say {guildId} />
 </Card>
 
 <Card title="Image Filter">
   <ImageFilter {guildId} />
-</Card>
-
-<Card title="Quick Report">
-  <QuickReport {guildId} />
 </Card>
 
 <Card title="Full Report">

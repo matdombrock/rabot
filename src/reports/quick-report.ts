@@ -26,7 +26,7 @@ export async function generateQuickReport(guild: Guild): Promise<QuickReportResu
 
   const members = guild.members.cache;
   const now = Date.now();
-  const header = "Username,Display Name,Top Role,Days in Server";
+  const header = "ID,Avatar,Username,Display Name,Top Role,Days in Server";
   const rows: string[] = [header];
 
   for (const [, member] of members) {
@@ -35,8 +35,11 @@ export async function generateQuickReport(guild: Guild): Promise<QuickReportResu
       ? Math.floor((now - member.joinedAt.getTime()) / 86_400_000)
       : "?";
     const topRole = member.roles.highest.name;
+    const avatarUrl = member.displayAvatarURL({ size: 32 });
     rows.push(
       [
+        user.id,
+        csvEscape(avatarUrl),
         csvEscape(user.username),
         csvEscape(member.displayName),
         csvEscape(topRole),
