@@ -199,6 +199,89 @@ export function createWebServer(client: Client) {
     }
   });
 
+  // ── Analytics ──
+
+  app.get("/api/guild/:guildId/analytics", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+
+      // Date range filter
+      const rangeDays = Math.min(parseInt(req.query.range as string) || 90, 1095);
+      const rangeMs = rangeDays * 24 * 60 * 60 * 1000;
+      const rangeDate = new Date(Date.now() - rangeMs).toISOString();
+
+      // Interval grouping
+      const interval = (req.query.interval as string) || 'day';
+      let dateGroupExpr: string;
+      let dateLabelExpr: string;
+      if (interval === 'week') {
+        dateGroupExpr = "strftime('%Y-W%W', datetime(created_at / 1000, 'unixepoch'))";
+        dateLabelExpr = "strftime('%Y-W%W', datetime(created_at / 1000, 'unixepoch'))";
+      } else if (interval === 'month') {
+        dateGroupExpr = "strftime('%Y-%m', datetime(created_at / 1000, 'unixepoch'))";
+        dateLabelExpr = "strftime('%Y-%m', datetime(created_at / 1000, 'unixepoch'))";
+      } else {
+        dateGroupExpr = "date(datetime(created_at / 1000, 'unixepoch'))";
+        dateLabelExpr = "date(datetime(created_at / 1000, 'unixepoch'))";
+      }
+
+      let userDateGroupExpr: string;
+      let userDateLabelExpr: string;
+      if (interval === 'week') {
+        userDateGroupExpr = "strftime('%Y-W%W', guild_join_date)";
+        userDateLabelExpr = "strftime('%Y-W%W', guild_join_date)";
+      } else if (interval === 'month') {
+        userDateGroupExpr = "strftime('%Y-%m', guild_join_date)";
+        userDateLabelExpr = "strftime('%Y-%m', guild_join_date)";
+      } else {
+        userDateGroupExpr = "date(guild_join_date)";
+        userDateLabelExpr = "date(guild_join_date)";
+      }
+
+      // Total stats (always global, not filtered by range)
+      const totalUsers = db.prepare("SELECT COUNT(*) as count FROM members").get() as { count: number };
+      const totalMessages = db.prepare("SELECT COUNT(*) as count FROM messages").get() as { count: number };
+      const avgDays = db.prepare("SELECT AVG(julianday('now') - julianday(guild_join_date)) as avg FROM members WHERE guild_join_date IS NOT NULL").get() as { avg: number | null };
+
+      // Messages per interval
+      const messagesByDay = db.prepare(`
+        SELECT ${dateLabelExpr} as day, COUNT(*) as count
+        FROM messages
+        WHERE created_at > ?
+        GROUP BY ${dateGroupExpr}
+        ORDER BY day ASC
+      `).all(Date.now() - rangeMs) as { day: string; count: number }[];
+
+      // New users per interval
+      const newUsersByDay = db.prepare(`
+        SELECT ${userDateLabelExpr} as day, COUNT(*) as count
+        FROM members
+        WHERE guild_join_date IS NOT NULL AND guild_join_date > ?
+        GROUP BY ${userDateGroupExpr}
+        ORDER BY day ASC
+      `).all(rangeDate) as { day: string; count: number }[];
+
+      // Period stats
+      const newUsersPeriod = db.prepare(`SELECT COUNT(*) as count FROM members WHERE guild_join_date IS NOT NULL AND guild_join_date > ?`).get(rangeDate) as { count: number };
+      const messagesPeriod = db.prepare(`SELECT COUNT(*) as count FROM messages WHERE created_at > ?`).get(Date.now() - rangeMs) as { count: number };
+
+      res.json({
+        totalUsers: totalUsers.count,
+        totalMessages: totalMessages.count,
+        avgDaysInServer: Math.round((avgDays.avg ?? 0) * 10) / 10,
+        rangeDays,
+        interval,
+        periodNewUsers: newUsersPeriod.count,
+        periodMessages: messagesPeriod.count,
+        messagesByDay,
+        newUsersByDay,
+      });
+    } catch (err) {
+      console.error("Analytics fetch failed:", err);
+      res.status(500).json({ error: "Failed to fetch analytics" });
+    }
+  });
+
   // ── Reports ──
 
   app.get("/api/guild/:guildId/reports/quick-report", async (req, res) => {

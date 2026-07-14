@@ -1,0 +1,2 @@
+- favicon
+- font awesome icons for headers 

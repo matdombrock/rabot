@@ -8,6 +8,7 @@
   import QuickReport from './lib/QuickReport.svelte'
   import RecentReports from './lib/RecentReports.svelte'
   import Messages from './lib/Messages.svelte'
+  import Analytics from './lib/Analytics.svelte'
   import ModLog from './lib/ModLog.svelte'
 
   const STORAGE_KEY = 'dbot-last-guild-id';
@@ -20,6 +21,7 @@
     { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns, filters, and user analysis', component: QuickReport, props: {} },
     { key: 'say', title: 'Say', description: 'Send messages to a channel with send history', component: Say },
     { key: 'image-filter', title: 'Image Filter', description: 'Manage SHA256 checksum watchlist and view moderation log', component: ImageFilter },
+    { key: 'analytics', title: 'Analytics', description: 'Server stats, user activity, and message trends with charts', component: Analytics },
     { key: 'text-filter', title: 'Text Filter', description: 'Manage text pattern filters with warn/kick/ban actions', component: TextFilter },
     { key: 'recent-reports', title: 'Recent Reports', description: 'Browse, download, and delete generated reports and analyses', component: RecentReports },
     { key: 'messages', title: 'Messages', description: 'Browse per-channel message history with search, filters, and export', component: Messages },
