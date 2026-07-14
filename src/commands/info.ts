@@ -10,11 +10,10 @@ const info: Command = {
     .toJSON(),
   async execute(interaction) {
     const embed = new EmbedBuilder()
-      .setTitle("Bot Info")
-      .setColor(0x5865f2)
+      .setTitle("rb-zero")
+      .setColor(0xb450ff)
       .addFields(
         { name: "Node.js", value: process.version, inline: true },
-        { name: "Discord.js", value: `v${interaction.client.user?.id ? "14" : "?"}`, inline: true },
         { name: "Uptime", value: formatUptime(interaction.client.uptime), inline: true }
       );
 

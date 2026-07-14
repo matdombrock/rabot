@@ -44,7 +44,7 @@ npm run typecheck
 | Command | Permission | Description |
 |---|---|---|
 | `/ping` | Everyone | Pong! |
-| `/info` | Everyone | Bot info (Node.js version, uptime) |
+| `/info` | Everyone | Bot info (Node.js version, uptime, LLM model) |
 
 ## Web Control Panel
 
