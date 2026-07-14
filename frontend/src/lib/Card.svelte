@@ -1,22 +1,43 @@
 <script>
-  let collapsed = false;
-  export let title = "";
-  export let expanded = false;
+  import { createEventDispatcher } from 'svelte';
+  const dispatch = createEventDispatcher();
 
-  $: if (expanded) collapsed = false;
+  let collapsed = true;
+  export let title = "";
+  export let description = "";
+  export let expanded = false;
+  export let collapseAll = false;
+  export let collapsedState = undefined;
+
+  // On initial mount or collapseAll transition, collapse
+  let lastCollapseAll = false;
+  $: {
+    if (collapseAll && !lastCollapseAll) {
+      collapsed = true;
+    } else if (!collapseAll && collapsedState !== undefined) {
+      collapsed = collapsedState;
+    }
+    lastCollapseAll = collapseAll;
+  }
+
+  $: if (expanded && !collapseAll) collapsed = false;
 
   function toggle() {
     collapsed = !collapsed;
+    dispatch('collapsedStateChange', collapsed);
   }
 </script>
 
-<div class="card">
+<div class="card" class:collapsed>
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="card-header" on:click={toggle}>
     <h2>{title}</h2>
     <span class="collapse-icon">{collapsed ? '▾' : '▴'}</span>
   </div>
   <div class="card-body" class:collapsed>
+    {#if description}
+      <p class="card-desc">{description}</p>
+    {/if}
     <slot />
   </div>
 </div>
@@ -25,29 +46,42 @@
   .card {
     background: var(--surface);
     border-radius: 8px;
-    padding: 1.5rem;
-    margin-bottom: 1rem;
+    padding: 0;
+    margin-bottom: 0;
+  }
+  .card-body {
+    padding: 0 1rem 1rem;
   }
   @media (max-width: 640px) {
-    .card {
-      padding: 1rem;
+    .card-body {
+      padding: 0 0.75rem 0.75rem;
     }
   }
   .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 1rem;
     cursor: pointer;
     user-select: none;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
   }
-  .card-header:hover { opacity: 0.8; }
+  .card-header:hover { background: var(--surface-alt); }
   .card-header h2 {
     margin-bottom: 0;
     color: var(--text-muted);
     font-size: 1rem;
     word-break: break-word;
     hyphens: auto;
+  }
+  .card-desc {
+    margin-bottom: 0.75rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    opacity: 0.65;
+    line-height: 1.4;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--surface-alt);
   }
   .collapse-icon {
     color: var(--text-muted);

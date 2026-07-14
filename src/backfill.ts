@@ -102,7 +102,7 @@ async function backfill() {
             const batch: { id: string; channel_id: string; author_id: string; content: string; created_at: number }[] = [];
             for (const [, msg] of messages) {
               if (msg.author.bot) continue;
-              batch.push({ id: msg.id, channel_id: channel.id, author_id: msg.author.id, content: msg.content, created_at: msg.createdTimestamp });
+              batch.push({ id: msg.id, channel_id: channel.id, author_id: msg.author.id, content: msg.content || '[no text content]', created_at: msg.createdTimestamp });
             }
 
             if (batch.length > 0) insertMany(batch);

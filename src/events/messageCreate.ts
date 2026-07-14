@@ -64,7 +64,7 @@ const messageCreate: Event = {
     // ── Live tracking ──
 
     db.prepare(`INSERT INTO messages (id, channel_id, author_id, content, created_at) VALUES (?, ?, ?, ?, ?)`).run(
-      message.id, message.channelId, message.author.id, message.content, message.createdTimestamp
+      message.id, message.channelId, message.author.id, message.content || '[no text content]', message.createdTimestamp
     );
 
     const member = message.member;

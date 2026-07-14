@@ -62,6 +62,8 @@ export function createWebServer(client: Client) {
       const hasUrl = req.query.has_url === "true";
       const hasImage = req.query.has_image === "true";
       const hasEveryone = req.query.has_everyone === "true";
+      const showDeleted = req.query.show_deleted !== "false";
+      const deletedOnly = req.query.deleted_only === "true";
 
       const conditions: string[] = [];
       const params: any[] = [];
@@ -73,7 +75,11 @@ export function createWebServer(client: Client) {
       if (hasImage) { conditions.push("(m.content LIKE '%.png%' OR m.content LIKE '%.jpg%' OR m.content LIKE '%.jpeg%' OR m.content LIKE '%.gif%' OR m.content LIKE '%.webp%')"); }
       if (hasEveryone) { conditions.push("m.content LIKE '%@everyone%'"); }
       if (req.params.channelId !== "_all") { conditions.push("m.channel_id = ?"); params.push(req.params.channelId); }
-      conditions.push("m.deleted IS NOT 1");
+      if (deletedOnly) {
+        conditions.push("m.deleted = 1");
+      } else if (!showDeleted) {
+        conditions.push("m.deleted IS NOT 1");
+      }
 
       const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
       const query = `SELECT m.*, u.username, u.display_name, u.avatar_url FROM messages m LEFT JOIN members u ON m.author_id = u.id ${where}${before ? " AND m.created_at < (SELECT created_at FROM messages WHERE id = ?)" : ""} ORDER BY m.created_at DESC LIMIT ?`;

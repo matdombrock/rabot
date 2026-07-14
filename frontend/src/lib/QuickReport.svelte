@@ -1,5 +1,6 @@
 <script>
   import { tick } from 'svelte';
+  import UserSearchBox from './UserSearchBox.svelte';
 
   export let guildId = '';
   export let analyzeUserId = '';
@@ -8,10 +9,7 @@
   let status = '';
   let csv = '';
   let guildName = '';
-  let searchTerm = '';
-  let nameInput = '';
   let nameFilter = '';
-  let showNameDropdown = false;
   let roleInput = '';
   let roleFilter = '';
   let showRoleDropdown = false;
@@ -22,13 +20,14 @@
   let rawData = [];
   let roles = [];
   let users = [];
+  let searchUsers = [];
 
   let analysis = null;
   let analysisLoading = false;
   let analysisError = '';
   let analysisHistory = [];
   let viewingPastId = null;
-  let analysisCollapsed = false;
+  let analysisCollapsed = true;
 
   async function loadHistory() {
     if (!guildId) { analysisHistory = []; return; }
@@ -40,7 +39,38 @@
     } catch {}
   }
 
+  function parseAnalysisCsv(csv) {
+    // The analysis CSV is in Field,Value format
+    const map = {};
+    for (const line of csv.split('\n')) {
+      const idx = line.indexOf(',');
+      if (idx === -1) continue;
+      const key = line.slice(0, idx).trim();
+      let val = line.slice(idx + 1).trim();
+      map[key] = val;
+    }
+    return {
+      username: map['Username'] || '',
+      displayName: map['Display Name'] || '',
+      userId: map['User ID'] || '',
+      avatarUrl: map['Avatar'] || '',
+      discordJoinDate: map['Discord Join Date'] || '',
+      guildJoinDate: map['Guild Join Date'] && map['Guild Join Date'] !== 'N/A' ? map['Guild Join Date'] : null,
+      daysInServer: map['Days in Server'] || '',
+      accountAgeDays: map['Account Age (days)'] || '',
+      topRole: map['Top Role'] || '',
+      roles: (map['Roles'] || '').split('; ').filter(Boolean),
+      isBoosting: map['Boosting'] === 'Yes',
+      isBot: map['Bot'] === 'Yes',
+      totalMessages: parseInt(map['Total Messages']) || 0,
+      lastPostDate: map['Last Post'] && map['Last Post'] !== 'N/A' ? map['Last Post'] : null,
+      csv,
+      generated: map['Generated'] || '',
+    };
+  }
+
   async function viewPast(id) {
+    analysisCollapsed = false;
     viewingPastId = id;
     analysisLoading = true;
     analysisError = '';
@@ -48,7 +78,8 @@
     try {
       const r = await fetch(`/api/guild/${guildId}/history/${id}`);
       if (!r.ok) throw new Error(await r.text());
-      analysis = await r.json();
+      const record = await r.json();
+      analysis = parseAnalysisCsv(record.csv);
     } catch (err) {
       analysisError = err.message;
     } finally {
@@ -56,18 +87,7 @@
     }
   }
 
-  function fuzzyMatch(term, text) {
-    if (!term) return true;
-    const t = term.toLowerCase();
-    const txt = text.toLowerCase();
-    let ti = 0;
-    for (let i = 0; i < t.length; i++) {
-      const found = txt.indexOf(t[i], ti);
-      if (found === -1) return false;
-      ti = found + 1;
-    }
-    return true;
-  }
+
 
   function parseRow(line) {
     const cells = [];
@@ -106,10 +126,19 @@
     rows = applySort(filteredData(), sortCol, sortAsc);
   }
 
+  function onNameSelect(user) {
+    nameFilter = user.id;
+    render();
+  }
+
+  function onNameClear() {
+    nameFilter = '';
+    render();
+  }
+
   function filteredData() {
     let data = rawData;
-    if (nameFilter) data = data.filter(r => r[2] === nameFilter || r[3] === nameFilter);
-    if (searchTerm) data = data.filter(r => r.some(c => fuzzyMatch(searchTerm, c)));
+    if (nameFilter) data = data.filter(r => r[0] === nameFilter);
     if (roleFilter) data = data.filter(r => r[4] === roleFilter);
     return data;
   }
@@ -126,7 +155,6 @@
     csv = '';
     analysis = null;
     nameFilter = '';
-    nameInput = '';
     roleFilter = '';
     roleInput = '';
     try {
@@ -141,6 +169,14 @@
         rawData = lines.slice(1).map(l => parseRow(l));
         roles = [...new Set(rawData.map(r => r[4]).filter(Boolean))].sort();
         users = [...new Map(rawData.map(r => [r[2], { username: r[2], displayName: r[3], avatarUrl: r[1] }])).values()].sort((a, b) => a.username.localeCompare(b.username));
+        // Build search users — map lookup from username to user ID (row[0])
+        const userNameToId = new Map(rawData.map(r => [r[2], r[0]]));
+        searchUsers = users.map(u => ({
+          id: userNameToId.get(u.username) ?? u.username,
+          username: u.username,
+          displayName: u.displayName || '',
+          avatarUrl: (u.avatarUrl && u.avatarUrl.startsWith('https://cdn.discordapp.com/')) ? u.avatarUrl : '',
+        }));
         render();
       }
     } catch (err) {
@@ -163,6 +199,7 @@
   }
 
   async function analyzeUser(userId) {
+    analysisCollapsed = false;
     viewingPastId = null;
     analysisLoading = true;
     analysisError = '';
@@ -226,6 +263,13 @@
       rawData = lines.slice(1).map(l => parseRow(l));
       roles = [...new Set(rawData.map(r => r[4]).filter(Boolean))].sort();
       users = [...new Map(rawData.map(r => [r[2], { username: r[2], displayName: r[3], avatarUrl: r[1] }])).values()].sort((a, b) => a.username.localeCompare(b.username));
+      const userNameToId = new Map(rawData.map(r => [r[2], r[0]]));
+      searchUsers = users.map(u => ({
+        id: userNameToId.get(u.username) ?? u.username,
+        username: u.username,
+        displayName: u.displayName || '',
+        avatarUrl: (u.avatarUrl && u.avatarUrl.startsWith('https://cdn.discordapp.com/')) ? u.avatarUrl : '',
+      }));
       render();
     }
   }
@@ -242,17 +286,15 @@
       {#if analysisLoading}— loading...{/if}
     </h3>
     <div class="analysis-header-right">
-      {#if analysis && !analysisLoading}
-        <button class="btn-sm" on:click|stopPropagation={downloadAnalysis}>Download</button>
-      {/if}
-      {#if analysis || viewingPastId}
-        <button class="btn-sm" on:click|stopPropagation={closeAnalysis}>Close</button>
-      {/if}
       <span class="collapse-icon">{analysisCollapsed ? '▾' : '▴'}</span>
     </div>
   </div>
 
   <div class:collapsed={analysisCollapsed}>
+    <div class="analysis-search">
+      <UserSearchBox users={searchUsers} placeholder="Search for a user to analyze..." on:select={(e) => analyzeUser(e.detail.id)} />
+    </div>
+
     {#if !guildId}
       <p style="color:var(--text-muted)">Select a guild to analyze users.</p>
     {:else if analysisLoading}
@@ -270,7 +312,7 @@
               <tr><td>Username</td><td>{analysis.username}</td></tr>
               <tr><td>Display Name</td><td>{analysis.displayName}</td></tr>
               <tr><td>User ID</td><td>{analysis.userId}</td></tr>
-              <tr><td>Discord Join Date</td><td>{new Date(analysis.discordJoinDate).toLocaleString()}</td></tr>
+              <tr><td>Discord Join Date</td><td>{analysis.discordJoinDate ? new Date(analysis.discordJoinDate).toLocaleString() : 'N/A'}</td></tr>
               <tr><td>Guild Join Date</td><td>{analysis.guildJoinDate ? new Date(analysis.guildJoinDate).toLocaleString() : 'N/A'}</td></tr>
               <tr><td>Days in Server</td><td>{analysis.daysInServer}</td></tr>
               <tr><td>Account Age</td><td>{analysis.accountAgeDays} days</td></tr>
@@ -285,7 +327,7 @@
         </div>
       </div>
     {:else}
-      <p style="color:var(--text-muted)">Click <strong>Analyze</strong> on a user above, or select a past analysis below.</p>
+      <p style="color:var(--text-muted)">Click <strong>Analyze</strong> on a user in the list, or select a past analysis below.</p>
     {/if}
 
     {#if analysisHistory.length > 0}
@@ -319,33 +361,14 @@
 </div>
 
 <div class="row">
-  <button on:click={run} disabled={loading || !guildId}>Run</button>
-  <button on:click={downloadCsv} disabled={!csv}>Download CSV</button>
+  <button on:click={run} disabled={loading || !guildId}>Update</button>
+  <button on:click={downloadCsv} disabled={!csv}>Export CSV</button>
 </div>
 
 <div class="row" style="margin-top:0.5rem">
-  <input type="text" placeholder="Search..." bind:value={searchTerm} on:input={render} style="flex:1;max-width:200px" />
-  <div class="name-autocomplete">
-    <input type="text" placeholder="Filter by name..." bind:value={nameInput} on:focus={() => showNameDropdown = true} on:blur={() => setTimeout(() => showNameDropdown = false, 300)} on:input={() => showNameDropdown = true} style="width:150px;min-height:unset;padding:0.5rem;font-size:0.9rem" />
-    {#if showNameDropdown}
-      <div class="name-dropdown">
-        {#each users.filter(u => !nameInput || u.username.toLowerCase().includes(nameInput.toLowerCase()) || u.displayName.toLowerCase().includes(nameInput.toLowerCase())).slice(0, 10) as u}
-          <button class="name-option" on:click={() => { nameFilter = u.username; nameInput = u.username; showNameDropdown = false; render(); }}>
-            {#if u.avatarUrl.startsWith('https://cdn.discordapp.com/')}<img src={u.avatarUrl} alt="" class="name-opt-avatar" />{/if}
-            <span>{u.username}</span>
-            {#if u.displayName && u.displayName !== u.username}
-              <span style="color:var(--text-muted)">({u.displayName})</span>
-            {/if}
-          </button>
-        {/each}
-        {#if nameInput && !users.some(u => u.username.toLowerCase() === nameInput.toLowerCase())}
-          <button class="name-option" on:click={() => { nameFilter = ''; nameInput = ''; showNameDropdown = false; render(); }}>Clear filter</button>
-        {/if}
-      </div>
-    {/if}
-  </div>
+  <UserSearchBox users={searchUsers} bind:value={nameFilter} placeholder="Filter by name..." on:select={(e) => onNameSelect(e.detail)} on:clear={onNameClear} />
   {#if nameFilter}
-    <span class="name-badge" on:click={() => { nameFilter = ''; nameInput = ''; render(); }}>× {nameFilter}</span>
+    <span class="name-badge" on:click={onNameClear}>× {(searchUsers.find(u => u.id === nameFilter)?.username) || nameFilter}</span>
   {/if}
   <div class="role-autocomplete">
     <input type="text" placeholder="Filter by role..." bind:value={roleInput} on:focus={() => showRoleDropdown = true} on:blur={() => setTimeout(() => showRoleDropdown = false, 200)} on:input={() => showRoleDropdown = true} style="width:130px;min-height:unset;padding:0.5rem;font-size:0.9rem" />
@@ -410,8 +433,7 @@
   .responsive-table tr:hover td { background: var(--surface-alt); }
   .avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; vertical-align: middle; }
   .role-autocomplete { position: relative; display: inline-block; }
-  .name-autocomplete { position: relative; display: inline-block; }
-  .name-dropdown, .role-dropdown {
+  .role-dropdown {
     position: absolute; top: 100%; left: 0; z-index: 10;
     background: var(--surface); border: 1px solid var(--surface-alt); border-radius: 4px;
     max-height: 200px; overflow-y: auto; min-width: 180px;
@@ -421,8 +443,7 @@
     padding: 0.35rem 0.5rem; font-size: 0.8rem; border: none; border-radius: 0;
     background: none; color: var(--text); cursor: pointer; text-align: left;
   }
-  .name-option:hover, .role-option:hover { background: var(--surface-alt); }
-  .name-opt-avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; }
+  .role-option:hover { background: var(--surface-alt); }
   .name-badge, .role-badge {
     display: inline-flex; align-items: center; gap: 0.25rem;
     padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;
@@ -447,6 +468,11 @@
     user-select: none;
   }
   .analysis-header:hover { opacity: 0.8; }
+  .analysis-search {
+    margin-bottom: 0.75rem;
+  }
+  .analysis-search .user-search-box { width: 100%; }
+  .analysis-search .user-search-box input { width: 100%; }
   .analysis-header-right {
     display: flex;
     align-items: center;

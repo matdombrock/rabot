@@ -124,7 +124,7 @@
 
 <div class="row">
   <button on:click={run} disabled={loading || !guildId}>Run</button>
-  <button on:click={downloadCsv} disabled={!csv}>Download CSV</button>
+  <button on:click={downloadCsv} disabled={!csv}>Export CSV</button>
 </div>
 
 {#if showSearch}

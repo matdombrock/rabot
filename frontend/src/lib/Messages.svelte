@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher } from 'svelte';
   const dispatch = createEventDispatcher();
+  import UserSearchBox from './UserSearchBox.svelte';
 
   export let guildId = '';
 
@@ -16,16 +17,20 @@
   // Filters
   let members = [];
   let authorId = '';
-  let authorInput = '';
-  let showAuthorDropdown = false;
   let hasUrl = false;
   let hasImage = false;
   let hasEveryone = false;
+  let showDeleted = true;
+  let deletedOnly = false;
   let showFilters = false;
 
-  $: filteredMembers = authorInput
-    ? members.filter(m => m.username.toLowerCase().includes(authorInput.toLowerCase()) || (m.display_name || '').toLowerCase().includes(authorInput.toLowerCase()))
-    : [];
+  // Normalise members to UserSearchBox format
+  $: searchUsers = members.map(m => ({
+    id: m.id,
+    username: m.username,
+    displayName: m.display_name || '',
+    avatarUrl: m.avatar_url || '',
+  }));
 
   async function loadChannels() {
     channels = [];
@@ -50,6 +55,8 @@
     if (hasUrl) url += `&has_url=true`;
     if (hasImage) url += `&has_image=true`;
     if (hasEveryone) url += `&has_everyone=true`;
+    if (!showDeleted) url += `&show_deleted=false`;
+    if (deletedOnly) url += `&deleted_only=true`;
     return url;
   }
 
@@ -141,6 +148,19 @@
   }
 
   async function deleteMessage(msg) {
+    // If already deleted (from a prior session), just mark it in the DB without touching Discord
+    if (msg.deleted === 1) {
+      if (!confirm('This message was already deleted from Discord. Mark as deleted in the database?')) return;
+      try {
+        const r = await fetch(`/api/guild/${guildId}/messages/${msg.id}`, { method: 'DELETE' });
+        if (!r.ok) throw new Error(await r.text());
+      } catch (err) {
+        console.error('Delete failed:', err);
+        alert('Failed to mark message as deleted: ' + err.message);
+      }
+      return;
+    }
+
     if (!confirm('Delete this message from Discord and mark as deleted in the database?')) return;
     // Optimistically mark as deleted in-place
     const idx = messages.findIndex(m => m.id === msg.id);
@@ -162,16 +182,11 @@
 
   function clearFilters() {
     authorId = '';
-    authorInput = '';
     hasUrl = false;
     hasImage = false;
     hasEveryone = false;
-  }
-
-  function selectAuthor(m) {
-    authorId = m.id;
-    authorInput = `${m.username}${m.display_name && m.display_name !== m.username ? ` (${m.display_name})` : ''}`;
-    showAuthorDropdown = false;
+    showDeleted = true;
+    deletedOnly = false;
   }
 
   $: if (guildId) { loadChannels(); loadMembers(); }
@@ -195,22 +210,7 @@
   <div class="filters">
     <div class="row filters-row">
       <label class="filter-label">Author:</label>
-      <div class="author-autocomplete">
-        <input type="text" placeholder="Type a username..." bind:value={authorInput} on:focus={() => showAuthorDropdown = authorInput.length > 0} on:blur={() => setTimeout(() => showAuthorDropdown = false, 200)} on:input={() => showAuthorDropdown = authorInput.length > 0} class="author-input" />
-        {#if showAuthorDropdown && filteredMembers.length > 0}
-          <div class="author-dropdown">
-            {#each filteredMembers.slice(0, 10) as m}
-              <button class="author-option" on:click={() => selectAuthor(m)}>
-                {#if m.avatar_url}<img src={m.avatar_url} alt="" class="author-opt-avatar" />{/if}
-                <span>{m.username}</span>
-                {#if m.display_name && m.display_name !== m.username}
-                  <span style="color:var(--text-muted)">({m.display_name})</span>
-                {/if}
-              </button>
-            {/each}
-          </div>
-        {/if}
-      </div>
+      <UserSearchBox users={searchUsers} bind:value={authorId} placeholder="Type a username..." />
       <label class="filter-label">
         <input type="checkbox" bind:checked={hasUrl} /> URL
       </label>
@@ -219,6 +219,12 @@
       </label>
       <label class="filter-label">
         <input type="checkbox" bind:checked={hasEveryone} /> @everyone
+      </label>
+      <label class="filter-label">
+        <input type="checkbox" bind:checked={showDeleted} /> Show deleted
+      </label>
+      <label class="filter-label">
+        <input type="checkbox" bind:checked={deletedOnly} /> Deleted only
       </label>
       <button class="btn-sm" on:click={() => { clearFilters(); doSearch(); }}>Clear</button>
     </div>
@@ -263,10 +269,14 @@
             <button class="action-btn" on:click={() => copyText(msg)} title="Copy text">Copy</button>
             <button class="action-btn" on:click={() => copyLink(msg)} title="Copy Discord link">Link</button>
             <button class="action-btn" on:click={() => openDiscord(msg)} title="Open in Discord">View</button>
-            <button class="action-btn action-delete" on:click={() => deleteMessage(msg)} title="Delete from Discord">Delete</button>
+            {#if msg.deleted === 1 || msg._deletedLocally}
+              <button class="action-btn action-delete" on:click={() => deleteMessage(msg)} title="Mark as deleted in database">Delete (DB)</button>
+            {:else}
+              <button class="action-btn action-delete" on:click={() => deleteMessage(msg)} title="Delete from Discord">Delete</button>
+            {/if}
           </span>
         </div>
-        <div class="msg-content" class:deleted-msg={msg.deleted === 1 || msg._deletedLocally}>{msg.content || '<no content>'}</div>
+        <div class="msg-content" class:deleted-msg={msg.deleted === 1 || msg._deletedLocally}>{msg.content || '[no text content]'}</div>
       </div>
     </div>
   {/each}
@@ -311,25 +321,6 @@
   }
   .filter-label input[type="checkbox"] { margin: 0; }
   button.active { background: var(--primary); }
-  .author-autocomplete { position: relative; display: inline-block; }
-  .author-input {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.8rem;
-    min-height: unset;
-    width: 150px;
-  }
-  .author-dropdown {
-    position: absolute; top: 100%; left: 0; z-index: 10;
-    background: var(--surface); border: 1px solid var(--surface-alt); border-radius: 4px;
-    max-height: 200px; overflow-y: auto; min-width: 220px;
-  }
-  .author-option {
-    display: flex; align-items: center; gap: 0.4rem; width: 100%;
-    padding: 0.35rem 0.5rem; font-size: 0.8rem; border: none; border-radius: 0;
-    background: none; color: var(--text); cursor: pointer; text-align: left;
-  }
-  .author-option:hover { background: var(--surface-alt); }
-  .author-opt-avatar { width: 20px; height: 20px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
   .msg-list {
     max-height: 70vh;
     overflow-y: auto;
@@ -374,7 +365,6 @@
     .search-row { flex-wrap: wrap; }
     .channel-select { flex: 1 1 100%; min-width: 0; }
     .search-input { flex: 1 1 100%; min-width: 0; }
-    .author-input { width: 120px; }
     .msg { padding: 0.4rem 0.5rem; gap: 0.5rem; }
     .msg-avatar { width: 28px; height: 28px; }
     .msg-avatar-placeholder { width: 28px; height: 28px; }
