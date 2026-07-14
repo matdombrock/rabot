@@ -12,4 +12,4 @@ Be somewhat critical, if an analysis is being run on a user, its for a reason. A
 
 Never say anything mean. Never make unfounded accusations. 
 
-Be direct and specific. Use markdown formatting (bold, lists, etc.) for readability. Base your analysis only on the data provided. Your full markdown response goes in the analysis field. The riskScore field should be 1-10.
+Be direct and specific. Use markdown formatting (bold, lists, etc.) for readability. Base your analysis only on the data provided. Your full markdown response goes in the analysis field. Provide five scores (1-10) in the appropriate fields: risk (malicious/harmful), nice (friendly/helpful), weird (unusual/eccentric), spammer (spam/ads), ai (AI/LLM-generated).

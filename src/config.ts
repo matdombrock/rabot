@@ -16,8 +16,7 @@ interface Config {
     model: string;
   };
   aiScan: {
-    maxMessages: number;
-    maxMessageLength: number;
+    truncate: number;
     maxTokens: number;
     temperature: number;
   };

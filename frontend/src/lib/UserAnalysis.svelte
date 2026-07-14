@@ -139,7 +139,7 @@
         csv: '',
         generated: record.generated || '',
       };
-      aiScanResult = { analysis: record.ai_scan || '', riskScore: record.risk_score, userId: record.username };
+      aiScanResult = { analysis: record.ai_scan || '', riskScore: record.risk_score, niceScore: record.nice_score, weirdScore: record.weird_score, spammerScore: record.spammer_score, aiScore: record.ai_score, userId: record.username };
       aiScanHtml = renderMarkdown(record.ai_scan || '');
     } else {
       analysis = parseAnalysisCsv(record.csv);
@@ -159,43 +159,16 @@
     if (!analysis) return;
     aiScanLoading = true;
     aiScanError = '';
-    aiScanResult = { analysis: '', riskScore: null };
+    aiScanResult = null;
     aiScanHtml = '';
-
-    let accumulated = '';
-
     try {
       const r = await fetch(`/api/guild/${guildId}/user-ai-scan/${analysis.userId}`);
       if (!r.ok) throw new Error(await r.text());
-
-      const reader = r.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() ?? '';
-
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue;
-          const data = JSON.parse(line.slice(6));
-
-          if (data.type === 'text') {
-            accumulated = data.text;
-            aiScanHtml = renderMarkdown(accumulated);
-            aiScanHtml = aiScanHtml; // trigger reactivity
-          } else if (data.type === 'done') {
-            aiScanResult = { analysis: data.analysis || accumulated, riskScore: data.riskScore };
-            aiScanHtml = renderMarkdown(data.analysis || accumulated);
-          } else if (data.type === 'error') {
-            throw new Error(data.error);
-          }
-        }
-      }
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+      aiScanResult = data;
+      aiScanHtml = renderMarkdown(data.analysis);
+      loadHistory();
     } catch (err) {
       aiScanError = err.message;
     } finally {
@@ -314,18 +287,49 @@
     </div>
     <div class="ai-section">
       {#if aiScanLoading}
-        <p style="color:var(--text-muted);font-size:0.85rem;margin-top:0.5rem">Running AI analysis...</p>
+        <div class="ai-loading">
+          <span class="ai-loading-dot">•</span>
+          <span class="ai-loading-dot">•</span>
+          <span class="ai-loading-dot">•</span>
+          <span class="ai-loading-text">AI Scan in progress...</span>
+        </div>
       {/if}
       {#if aiScanError}
         <p style="color:var(--danger);font-size:0.85rem;margin-top:0.5rem">Error: {aiScanError}</p>
       {/if}
       {#if aiScanResult}
         <div class="ai-result-header">
-          <div class="ai-score">
-            <span class="ai-score-label">Risk Score</span>
-            <span class="ai-score-value" class:score-low={aiScanResult.riskScore !== null && aiScanResult.riskScore <= 3} class:score-mid={aiScanResult.riskScore !== null && aiScanResult.riskScore > 3 && aiScanResult.riskScore <= 6} class:score-high={aiScanResult.riskScore !== null && aiScanResult.riskScore > 6}>
-              {aiScanResult.riskScore !== null ? `${aiScanResult.riskScore}/10` : 'N/A'}
-            </span>
+          <div class="ai-scores">
+            <div class="ai-score">
+              <span class="ai-score-label">Risk</span>
+              <span class="ai-score-value" class:score-low={aiScanResult.riskScore !== null && aiScanResult.riskScore <= 3} class:score-mid={aiScanResult.riskScore !== null && aiScanResult.riskScore > 3 && aiScanResult.riskScore <= 6} class:score-high={aiScanResult.riskScore !== null && aiScanResult.riskScore > 6}>
+                {aiScanResult.riskScore !== null ? `${aiScanResult.riskScore}/10` : 'N/A'}
+              </span>
+            </div>
+            <div class="ai-score">
+              <span class="ai-score-label">Nice</span>
+              <span class="ai-score-value" class:score-nice-low={aiScanResult.niceScore !== null && aiScanResult.niceScore <= 3} class:score-nice-mid={aiScanResult.niceScore !== null && aiScanResult.niceScore > 3 && aiScanResult.niceScore <= 6} class:score-nice-high={aiScanResult.niceScore !== null && aiScanResult.niceScore > 6}>
+                {aiScanResult.niceScore !== null ? `${aiScanResult.niceScore}/10` : 'N/A'}
+              </span>
+            </div>
+            <div class="ai-score">
+              <span class="ai-score-label">Weird</span>
+              <span class="ai-score-value" class:score-low={aiScanResult.weirdScore !== null && aiScanResult.weirdScore <= 3} class:score-mid={aiScanResult.weirdScore !== null && aiScanResult.weirdScore > 3 && aiScanResult.weirdScore <= 6} class:score-high={aiScanResult.weirdScore !== null && aiScanResult.weirdScore > 6}>
+                {aiScanResult.weirdScore !== null ? `${aiScanResult.weirdScore}/10` : 'N/A'}
+              </span>
+            </div>
+            <div class="ai-score">
+              <span class="ai-score-label">Spammer</span>
+              <span class="ai-score-value" class:score-low={aiScanResult.spammerScore !== null && aiScanResult.spammerScore <= 3} class:score-mid={aiScanResult.spammerScore !== null && aiScanResult.spammerScore > 3 && aiScanResult.spammerScore <= 6} class:score-high={aiScanResult.spammerScore !== null && aiScanResult.spammerScore > 6}>
+                {aiScanResult.spammerScore !== null ? `${aiScanResult.spammerScore}/10` : 'N/A'}
+              </span>
+            </div>
+            <div class="ai-score">
+              <span class="ai-score-label">AI/LLM</span>
+              <span class="ai-score-value" class:score-low={aiScanResult.aiScore !== null && aiScanResult.aiScore <= 3} class:score-mid={aiScanResult.aiScore !== null && aiScanResult.aiScore > 3 && aiScanResult.aiScore <= 6} class:score-high={aiScanResult.aiScore !== null && aiScanResult.aiScore > 6}>
+                {aiScanResult.aiScore !== null ? `${aiScanResult.aiScore}/10` : 'N/A'}
+              </span>
+            </div>
           </div>
           <button class="btn-sm" on:click={() => navigator.clipboard.writeText(aiScanResult.analysis)}><i class="fa-solid fa-copy"></i> Copy</button>
         </div>
@@ -438,32 +442,70 @@
   .ai-section {
     margin-top: 0.5rem;
   }
-  .ai-result-header {
+  .ai-loading {
     display: flex;
     align-items: center;
+    gap: 0.3rem;
+    padding: 0.75rem;
+    background: var(--background);
+    border-radius: 6px;
+    margin-top: 0.5rem;
+  }
+  .ai-loading-text {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    margin-left: 0.25rem;
+  }
+  .ai-loading-dot {
+    font-size: 1.2rem;
+    color: var(--primary);
+    animation: ai-bounce 1.2s infinite;
+  }
+  .ai-loading-dot:nth-child(2) { animation-delay: 0.2s; }
+  .ai-loading-dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes ai-bounce {
+    0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-4px); }
+  }
+  .ai-result-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
     gap: 0.75rem;
     margin-bottom: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .ai-scores {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
   }
   .ai-score {
     display: flex;
+    flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.15rem;
+    min-width: 48px;
   }
   .ai-score-label {
-    font-size: 0.8rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.04em;
+    font-weight: 600;
   }
   .ai-score-value {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 700;
-    padding: 0.15rem 0.5rem;
+    padding: 0.1rem 0.4rem;
     border-radius: 4px;
   }
   .score-low { color: #23a55a; background: #23a55a22; }
   .score-mid { color: #f0b232; background: #f0b23222; }
   .score-high { color: #f23f42; background: #f23f4222; }
+  .score-nice-low { color: #f23f42; background: #f23f4222; }
+  .score-nice-mid { color: #f0b232; background: #f0b23222; }
+  .score-nice-high { color: #23a55a; background: #23a55a22; }
   .ai-result {
     background: var(--background);
     border: 1px solid var(--surface-alt);

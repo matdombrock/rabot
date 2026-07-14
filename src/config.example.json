@@ -10,8 +10,7 @@
     "model": "deepseek/deepseek-v4-flash"
   },
   "aiScan": {
-    "maxMessages": 100,
-    "maxMessageLength": 500,
+    "truncate": 8000,
     "maxTokens": 1000,
     "temperature": 0.3
   }

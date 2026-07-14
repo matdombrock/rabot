@@ -9,13 +9,17 @@ import crypto from "node:crypto";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SYSTEM_PROMPT = readFileSync(join(__dirname, "ai-prompt.txt"), "utf-8");
 
-const { maxMessages, maxMessageLength, maxTokens, temperature } = config.aiScan;
+const { truncate, maxTokens, temperature } = config.aiScan;
 
 export interface AiScanResult {
   userId: string;
   username: string;
   analysis: string;
   riskScore: number | null;
+  niceScore: number | null;
+  weirdScore: number | null;
+  spammerScore: number | null;
+  aiScore: number | null;
   error?: string;
 }
 
@@ -26,153 +30,9 @@ interface StreamChunk {
   error?: string;
 }
 
-/**
- * Stream the AI scan response to a callback, yielding partial text chunks and the final score.
- * The caller is responsible for calling `saveAiScanResult` afterward to persist.
- */
-export async function streamAiScan(
-  guild: Guild,
-  userId: string,
-  onChunk: (chunk: StreamChunk) => void,
-): Promise<void> {
-  if (!config.openrouter.apiKey) {
-    onChunk({ type: "error", error: "OpenRouter API key not configured. Add it to src/config.json" });
-    return;
-  }
-
-  const db = getGuildDb(guild.id);
-
-  const memberRow = db.prepare("SELECT * FROM members WHERE id = ?").get(userId) as Record<string, unknown> | undefined;
-  const member = guild.members.cache.get(userId) ?? (await guild.members.fetch(userId).catch(() => null));
-
-  const username = memberRow?.username as string ?? member?.user.username ?? userId;
-  const displayName = memberRow?.display_name as string ?? member?.displayName ?? "";
-  const joinDate = memberRow?.guild_join_date as string ?? member?.joinedAt?.toISOString() ?? "unknown";
-  const topRole = memberRow?.top_role as string ?? member?.roles.highest.name ?? "@everyone";
-  const isBot = memberRow ? !!(memberRow.is_bot as number) : member?.user.bot ?? false;
-
-  const messages = db.prepare(`
-    SELECT content, created_at, channel_id FROM messages
-    WHERE author_id = ?
-    ORDER BY created_at DESC
-    LIMIT ?
-  `).all(userId, maxMessages) as { content: string; created_at: number; channel_id: string }[];
-
-  const messageText = messages
-    .reverse()
-    .map(m => {
-      const date = new Date(m.created_at).toISOString().slice(0, 10);
-      const content = m.content.length > maxMessageLength ? m.content.slice(0, maxMessageLength) + "..." : m.content;
-      return `[${date}] ${content}`;
-    })
-    .join("\n");
-
-  const userProfile = [
-    `Username: ${username}`,
-    `Display Name: ${displayName || "—"}`,
-    `User ID: ${userId}`,
-    `Guild Join Date: ${joinDate}`,
-    `Top Role: ${topRole}`,
-    `Is Bot: ${isBot ? "Yes" : "No"}`,
-    `Total Messages in DB: ${messages.length}`,
-    ``,
-    `--- MESSAGES (${messages.length} messages, most recent first) ---`,
-    messageText || "(no messages found)",
-  ].join("\n");
-
-  try {
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${config.openrouter.apiKey}`,
-        "HTTP-Referer": "https://github.com/your-username/dbot",
-      },
-      body: JSON.stringify({
-        model: config.openrouter.model,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userProfile },
-        ],
-        max_tokens: maxTokens,
-        temperature,
-        stream: true,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "user_scan",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: {
-                analysis: { type: "string", description: "Full natural language analysis of the user in markdown format" },
-                riskScore: { type: "integer", minimum: 1, maximum: 10, description: "Likelihood this user is spammer or malicious" }
-              },
-              required: ["analysis", "riskScore"],
-              additionalProperties: false
-            }
-          }
-        }
-      }),
-    });
-
-    if (!response.ok) {
-      const errText = await response.text();
-      throw new Error(`OpenRouter API error ${response.status}: ${errText.slice(0, 500)}`);
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) throw new Error("No response body from OpenRouter");
-
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      // Process complete SSE lines
-      const lines = buffer.split("\n");
-      buffer = lines.pop() ?? "";
-
-      for (const line of lines) {
-        if (!line.startsWith("data: ")) continue;
-        const data = line.slice(6).trim();
-        if (data === "[DONE]") continue;
-
-        try {
-          const parsed = JSON.parse(data);
-          const delta = parsed.choices?.[0]?.delta?.content;
-          if (delta) {
-            // Try to parse the accumulated JSON to extract text
-            // Since we're streaming JSON, we extract text from partial JSON
-            onChunk({ type: "text", text: delta });
-          }
-        } catch {
-          // Partial JSON — skip parse errors during streaming
-        }
-      }
-    }
-
-    // Send done signal — the frontend will parse the full accumulated text for the score
-    onChunk({ type: "done" });
-
-  } catch (err) {
-    onChunk({
-      type: "error",
-      error: err instanceof Error ? err.message : "Unknown error during AI scan",
-    });
-  }
-}
-
-/**
- * Non-streaming version for backward compatibility / save-to-DB use.
- * Parses the score from the final JSON response.
- */
 export async function generateAiScan(guild: Guild, userId: string): Promise<AiScanResult> {
   if (!config.openrouter.apiKey) {
-    return { userId, username: "", analysis: "", riskScore: null, error: "OpenRouter API key not configured. Add it to src/config.json" };
+    return { userId, username: "", analysis: "", riskScore: null, niceScore: null, weirdScore: null, spammerScore: null, aiScore: null, error: "OpenRouter API key not configured. Add it to src/config.json" };
   }
 
   const db = getGuildDb(guild.id);
@@ -186,21 +46,25 @@ export async function generateAiScan(guild: Guild, userId: string): Promise<AiSc
   const topRole = memberRow?.top_role as string ?? member?.roles.highest.name ?? "@everyone";
   const isBot = memberRow ? !!(memberRow.is_bot as number) : member?.user.bot ?? false;
 
-  const messages = db.prepare(`
-    SELECT content, created_at, channel_id FROM messages
+  // Grab messages in reverse chronological order, accumulating until truncate limit
+  const allMessages = db.prepare(`
+    SELECT content, created_at FROM messages
     WHERE author_id = ?
     ORDER BY created_at DESC
-    LIMIT ?
-  `).all(userId, maxMessages) as { content: string; created_at: number; channel_id: string }[];
+  `).all(userId) as { content: string; created_at: number }[];
 
-  const messageText = messages
-    .reverse()
-    .map(m => {
-      const date = new Date(m.created_at).toISOString().slice(0, 10);
-      const content = m.content.length > maxMessageLength ? m.content.slice(0, maxMessageLength) + "..." : m.content;
-      return `[${date}] ${content}`;
-    })
-    .join("\n");
+  let messageLines: string[] = [];
+  let totalLen = 0;
+  for (const m of allMessages) {
+    const date = new Date(m.created_at).toISOString().slice(0, 10);
+    const line = `[${date}] ${m.content}`;
+    if (totalLen + line.length > truncate && messageLines.length > 0) break;
+    messageLines.push(line);
+    totalLen += line.length;
+  }
+  // Reverse so oldest-first
+  messageLines.reverse();
+  const messageText = messageLines.join("\n");
 
   const userProfile = [
     `Username: ${username}`,
@@ -209,9 +73,9 @@ export async function generateAiScan(guild: Guild, userId: string): Promise<AiSc
     `Guild Join Date: ${joinDate}`,
     `Top Role: ${topRole}`,
     `Is Bot: ${isBot ? "Yes" : "No"}`,
-    `Total Messages in DB: ${messages.length}`,
+    `Total Messages in DB: ${allMessages.length}`,
     ``,
-    `--- MESSAGES (${messages.length} messages, most recent first) ---`,
+    `--- MESSAGES (showing ${messageLines.length} messages, ${totalLen} chars) ---`,
     messageText || "(no messages found)",
   ].join("\n");
 
@@ -240,9 +104,13 @@ export async function generateAiScan(guild: Guild, userId: string): Promise<AiSc
               type: "object",
               properties: {
                 analysis: { type: "string", description: "Full natural language analysis of the user in markdown format" },
-                riskScore: { type: "integer", minimum: 1, maximum: 10, description: "Likelihood this user is spammer or malicious" }
+                risk:    { type: "integer", minimum: 1, maximum: 10, description: "Risk score — likelihood user is malicious or harmful" },
+                nice:    { type: "integer", minimum: 1, maximum: 10, description: "Nice score — how friendly, helpful, and positive this user is" },
+                weird:   { type: "integer", minimum: 1, maximum: 10, description: "Weird score — how unusual, eccentric, or odd the user's behaviour is" },
+                spammer: { type: "integer", minimum: 1, maximum: 10, description: "Spammer score — likelihood user is posting spam, ads, or repetitive content" },
+                ai:      { type: "integer", minimum: 1, maximum: 10, description: "AI/LLM score — likelihood the user is an AI bot or LLM-generated" }
               },
-              required: ["analysis", "riskScore"],
+              required: ["analysis", "risk", "nice", "weird", "spammer", "ai"],
               additionalProperties: false
             }
           }
@@ -260,20 +128,30 @@ export async function generateAiScan(guild: Guild, userId: string): Promise<AiSc
     const parsed = JSON.parse(rawContent);
 
     const analysis = parsed.analysis || "(no analysis returned)";
-    const riskScore = typeof parsed.riskScore === "number" ? Math.min(Math.max(parsed.riskScore, 1), 10) : null;
+    const clamp = (n: unknown) => typeof n === "number" ? Math.min(Math.max(n, 1), 10) : null;
+    const riskScore = clamp(parsed.risk);
+    const niceScore = clamp(parsed.nice);
+    const weirdScore = clamp(parsed.weird);
+    const spammerScore = clamp(parsed.spammer);
+    const aiScore = clamp(parsed.ai);
 
-    return { userId, username, analysis, riskScore };
+    return { userId, username, analysis, riskScore, niceScore, weirdScore, spammerScore, aiScore };
   } catch (err) {
     return {
-      userId, username, analysis: "", riskScore: null,
+      userId, username, analysis: "", riskScore: null, niceScore: null, weirdScore: null, spammerScore: null, aiScore: null,
       error: err instanceof Error ? err.message : "Unknown error during AI scan",
     };
   }
 }
 
-export function saveAiScanResult(guildId: string, username: string, analysis: string, riskScore: number | null) {
+export function saveAiScanResult(
+  guildId: string, guildName: string, username: string, analysis: string,
+  riskScore: number | null, niceScore: number | null, weirdScore: number | null,
+  spammerScore: number | null, aiScore: number | null,
+) {
   const db = getGuildDb(guildId);
-  db.prepare("INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv, ai_scan, risk_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
-    crypto.randomUUID(), "", "ai-scan", new Date().toISOString(), 0, username, "", analysis, riskScore
+  db.prepare(`INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv, ai_scan, risk_score, nice_score, weird_score, spammer_score, ai_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    crypto.randomUUID(), guildName, "ai-scan", new Date().toISOString(), 0, username, "", analysis,
+    riskScore, niceScore, weirdScore, spammerScore, aiScore
   );
 }
