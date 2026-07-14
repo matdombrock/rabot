@@ -78,7 +78,7 @@
       const r = await fetch(`/api/guild/${guildId}/history`);
       if (!r.ok) return;
       const all = await r.json();
-      analysisHistory = all.filter(r => r.type === 'analysis' || r.type === 'ai-scan').reverse();
+      analysisHistory = all.filter(r => r.type === 'analysis' || r.type === 'ai-scan');
     } catch {}
   }
 

@@ -73,7 +73,8 @@ export async function generateAiScan(guild: Guild, userId: string): Promise<AiSc
     messageText || "(no messages found)",
   ].join("\n");
 
-  // Call OpenRouter API
+  // Call OpenRouter API with structured output + text analysis
+  // The model returns a JSON object, and we preserve the full text response as well
   try {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -90,6 +91,27 @@ export async function generateAiScan(guild: Guild, userId: string): Promise<AiSc
         ],
         max_tokens: maxTokens,
         temperature,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "user_scan",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                analysis: { type: "string", description: "Full natural language analysis of the user in markdown format covering summary, topics, concerns, and recommendation" },
+                riskScore: {
+                  type: "integer",
+                  minimum: 1,
+                  maximum: 10,
+                  description: "Likelihood this user is spammer or malicious (1 = benign, 10 = malicious)"
+                }
+              },
+              required: ["analysis", "riskScore"],
+              additionalProperties: false
+            }
+          }
+        }
       }),
     });
 
@@ -99,14 +121,11 @@ export async function generateAiScan(guild: Guild, userId: string): Promise<AiSc
     }
 
     const data = await response.json() as { choices: { message: { content: string } }[] };
-    const fullAnalysis = data.choices?.[0]?.message?.content ?? "(no response)";
+    const rawContent = data.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(rawContent);
 
-    // Parse risk score from the last line
-    const scoreMatch = fullAnalysis.match(/Risk Score:\s*(\d+)\s*\/\s*10/i);
-    const riskScore = scoreMatch ? Math.min(Math.max(parseInt(scoreMatch[1], 10), 1), 10) : null;
-
-    // Remove the score line from the analysis text
-    const analysis = fullAnalysis.replace(/\n?Risk Score:\s*\d+\s*\/\s*10\s*/i, '').trim();
+    const analysis = parsed.analysis || "(no analysis returned)";
+    const riskScore = typeof parsed.riskScore === "number" ? Math.min(Math.max(parsed.riskScore, 1), 10) : null;
 
     return { userId, username, analysis, riskScore };
   } catch (err) {
