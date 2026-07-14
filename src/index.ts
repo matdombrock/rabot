@@ -6,12 +6,20 @@ import { mainDb } from "./db.js";
 async function main() {
   await mainDb.read();
 
-  const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
+  const client = new Client({ intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+    GatewayIntentBits.GuildModeration,
+  ]});
 
   const eventMods = await Promise.all([
     import("./events/ready.js"),
     import("./events/interactionCreate.js"),
     import("./events/messageCreate.js"),
+    import("./events/messageDelete.js"),
+    import("./events/guildAuditLogEntryCreate.js"),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

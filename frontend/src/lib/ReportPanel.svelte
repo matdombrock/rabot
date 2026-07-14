@@ -135,9 +135,9 @@
 
 <div class="status">{status}</div>
 
-<div class="table-wrap">
+<div class="table-scroll">
   {#if headers.length > 0}
-    <table>
+    <table class="responsive-table">
       <thead>
         <tr>
           {#each headers as h, i}
@@ -163,17 +163,20 @@
 </div>
 
 <style>
-  .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-  .status { margin-top: 0.5rem; color: var(--text-muted); font-size: 0.85rem; }
-  .table-wrap { margin-top: 1rem; max-height: 70vh; overflow: auto; border-radius: 4px; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-  th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; cursor: pointer; user-select: none; color: var(--text); }
-  th:hover { filter: brightness(1.2); }
-  th::after { content: " \25B2"; font-size: 0.6rem; opacity: 0.4; }
-  th.sort-asc::after { content: " \25B2"; opacity: 1; }
-  th.sort-desc::after { content: " \25BC"; opacity: 1; }
-  td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }
-  tr:hover td { background: var(--surface-alt); }
-  tr.clickable { cursor: pointer; }
+  .table-scroll { margin-top: 1rem; max-height: 70vh; }
+  .responsive-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .responsive-table th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; cursor: pointer; user-select: none; color: var(--text); }
+  .responsive-table th:hover { filter: brightness(1.2); }
+  .responsive-table th::after { content: " \25B2"; font-size: 0.6rem; opacity: 0.4; }
+  .responsive-table th.sort-asc::after { content: " \25B2"; opacity: 1; }
+  .responsive-table th.sort-desc::after { content: " \25BC"; opacity: 1; }
+  .responsive-table td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }
+  .responsive-table tr:hover td { background: var(--surface-alt); }
+  .responsive-table tr.clickable { cursor: pointer; }
   .avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; vertical-align: middle; }
+  @media (max-width: 640px) {
+    .responsive-table { font-size: 0.7rem; }
+    .responsive-table th,
+    .responsive-table td { padding: 0.3rem 0.4rem; }
+  }
 </style>

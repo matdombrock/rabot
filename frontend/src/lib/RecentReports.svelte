@@ -41,18 +41,18 @@
   <button on:click={load}>Refresh</button>
 </div>
 <div class="status">{status}</div>
-<div class="table-wrap">
+<div class="table-scroll">
   {#if reports.length === 0}
     <p style="color:var(--text-muted)">No saved reports.</p>
   {:else}
-    <table>
+    <table class="responsive-table">
       <thead><tr><th>Type</th><th>Generated</th><th>Actions</th></tr></thead>
       <tbody>
         {#each reports as r}
           <tr>
             <td>{r.type}</td>
-            <td>{new Date(r.generated).toLocaleString()}</td>
-            <td>
+            <td class="nowrap">{new Date(r.generated).toLocaleString()}</td>
+            <td class="action-cell">
               <button class="btn-sm" on:click={() => download(r.id, r.guildName, r.type)}>Download</button>
               <button class="btn-sm btn-danger" on:click={() => del(r.id)}>Delete</button>
             </td>
@@ -64,14 +64,16 @@
 </div>
 
 <style>
-  .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-  .status { margin-top: 0.5rem; color: var(--text-muted); font-size: 0.85rem; }
-  .table-wrap { margin-top: 1rem; max-height: 70vh; overflow: auto; border-radius: 4px; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-  th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; color: var(--text); }
-  td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }
-  tr:hover td { background: var(--surface-alt); }
-  .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
-  .btn-danger { background: var(--danger); border-color: var(--danger); }
-  .btn-danger:hover { background: #a03db8; }
+  .table-scroll { margin-top: 1rem; max-height: 70vh; }
+  .responsive-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .responsive-table th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; color: var(--text); }
+  .responsive-table td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }
+  .responsive-table tr:hover td { background: var(--surface-alt); }
+  .nowrap { white-space: nowrap; }
+  .action-cell { white-space: nowrap; }
+  @media (max-width: 640px) {
+    .responsive-table { font-size: 0.7rem; }
+    .responsive-table th,
+    .responsive-table td { padding: 0.3rem 0.4rem; }
+  }
 </style>

@@ -48,15 +48,5 @@
 <div class="status">{pingResult}</div>
 
 <style>
-  .row {
-    display: flex;
-    gap: 0.5rem;
-    align-items: center;
-    flex-wrap: wrap;
-  }
-  .status {
-    margin-top: 0.5rem;
-    color: var(--text-muted);
-    font-size: 0.85rem;
-  }
+  /* .row, .status are now global utilities */
 </style>

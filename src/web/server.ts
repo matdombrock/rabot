@@ -73,6 +73,7 @@ export function createWebServer(client: Client) {
       if (hasImage) { conditions.push("(m.content LIKE '%.png%' OR m.content LIKE '%.jpg%' OR m.content LIKE '%.jpeg%' OR m.content LIKE '%.gif%' OR m.content LIKE '%.webp%')"); }
       if (hasEveryone) { conditions.push("m.content LIKE '%@everyone%'"); }
       if (req.params.channelId !== "_all") { conditions.push("m.channel_id = ?"); params.push(req.params.channelId); }
+      conditions.push("m.deleted IS NOT 1");
 
       const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
       const query = `SELECT m.*, u.username, u.display_name, u.avatar_url FROM messages m LEFT JOIN members u ON m.author_id = u.id ${where}${before ? " AND m.created_at < (SELECT created_at FROM messages WHERE id = ?)" : ""} ORDER BY m.created_at DESC LIMIT ?`;
@@ -86,6 +87,86 @@ export function createWebServer(client: Client) {
     } catch (err) {
       console.error("Messages fetch failed:", err);
       res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
+  // ── Delete message ──
+
+  app.delete("/api/guild/:guildId/messages/:messageId", async (req, res) => {
+    try {
+      const guildId = req.params.guildId;
+      const messageId = req.params.messageId;
+      const guild = client.guilds.cache.get(guildId);
+      if (!guild) { res.status(404).json({ error: "Guild not found" }); return; }
+
+      // Look up the message in the database to find which channel it's in
+      const db = getGuildDb(guildId);
+      const msg = db.prepare("SELECT channel_id, author_id, content FROM messages WHERE id = ?").get(messageId) as { channel_id: string; author_id: string; content: string } | undefined;
+      if (!msg) { res.status(404).json({ error: "Message not found in database" }); return; }
+
+      // Try to delete from Discord
+      let discordDeleted = false;
+      const channel = guild.channels.cache.get(msg.channel_id);
+      try {
+        if (channel?.isTextBased()) {
+          const discordMsg = await channel.messages.fetch(messageId);
+          await discordMsg.delete();
+          discordDeleted = true;
+        }
+      } catch (err) {
+        console.warn("Failed to delete message from Discord (may already be deleted):", err);
+      }
+
+      // Mark as deleted in the database
+      db.prepare("UPDATE messages SET deleted = 1 WHERE id = ?").run(messageId);
+
+      // Resolve author name
+      const author = db.prepare("SELECT username FROM members WHERE id = ?").get(msg.author_id) as { username: string } | undefined;
+      const channelName = (channel as any)?.name ?? "unknown";
+
+      // Log the action
+      const logId = crypto.randomUUID();
+      db.prepare(`INSERT INTO actionlogs (id, guild_id, guild_name, timestamp, action, target_id, target_name, channel_id, channel_name, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+        logId,
+        guildId,
+        guild.name,
+        new Date().toISOString(),
+        "message-delete",
+        msg.author_id,
+        author?.username ?? msg.author_id,
+        msg.channel_id,
+        channelName,
+        `Deleted message "${msg.content.slice(0, 200)}"`
+      );
+
+      res.json({ ok: true, discordDeleted, logId });
+    } catch (err) {
+      console.error("Delete message failed:", err);
+      res.status(500).json({ error: "Failed to delete message" });
+    }
+  });
+
+  // ── Action log ──
+
+  app.get("/api/guild/:guildId/actionlogs", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const rows = db.prepare("SELECT * FROM actionlogs ORDER BY timestamp DESC LIMIT 200").all();
+      res.json(rows);
+    } catch (err) {
+      console.error("Action log fetch failed:", err);
+      res.status(500).json({ error: "Failed to fetch action log" });
+    }
+  });
+
+  app.delete("/api/guild/:guildId/actionlogs", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      db.prepare("DELETE FROM actionlogs").run();
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Action log clear failed:", err);
+      res.status(500).json({ error: "Failed to clear action log" });
     }
   });
 

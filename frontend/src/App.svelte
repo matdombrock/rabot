@@ -9,20 +9,39 @@
   import FullReport from './lib/FullReport.svelte'
   import RecentReports from './lib/RecentReports.svelte'
   import Messages from './lib/Messages.svelte'
+  import ModLog from './lib/ModLog.svelte'
+
+  const STORAGE_KEY = 'dbot-last-guild-id';
 
   let guildId = '';
   let guilds = [];
   let analyzeUserId = '';
+  let ready = false;
 
   function onAnalyzeUser(id) {
     analyzeUserId = id;
   }
 
+  function saveGuildId(id) {
+    try {
+      localStorage.setItem(STORAGE_KEY, id);
+    } catch {}
+  }
+
   onMount(async () => {
     const r = await fetch('/api/guilds');
     guilds = await r.json();
+    // Restore last guild ID after guilds are loaded
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved && guilds.some(g => g.id === saved)) {
+        guildId = saved;
+      }
+    } catch {}
+    ready = true;
   });
 
+  $: if (ready && guildId) saveGuildId(guildId);
   $: selectedGuild = guilds.find(g => g.id === guildId);
   $: iconUrl = selectedGuild?.icon ? `https://cdn.discordapp.com/icons/${selectedGuild.id}/${selectedGuild.icon}.png` : null;
 </script>
@@ -42,7 +61,7 @@
   </div>
   <div class="guild-row">
     <label for="guild-select">Select guild:</label>
-    <select id="guild-select" on:change={(e) => guildId = e.target.value}>
+    <select id="guild-select" on:change={(e) => { guildId = e.target.value; saveGuildId(e.target.value); }}>
       <option value="">-- choose a guild --</option>
       {#each guilds as g}
         <option value={g.id}>{g.name}</option>
@@ -83,6 +102,10 @@
   <Messages {guildId} on:analyzeUser={(e) => onAnalyzeUser(e.detail)} />
 </Card>
 
+<Card title="Mod Log">
+  <ModLog {guildId} />
+</Card>
+
 <style>
   .guild-bar {
     margin-bottom: 1.5rem;
@@ -118,9 +141,23 @@
     height: 28px;
     border-radius: 50%;
     object-fit: cover;
+    flex-shrink: 0;
   }
   .guild-name {
     color: var(--text-bright);
     font-size: 0.95rem;
+  }
+
+  @media (max-width: 640px) {
+    .guild-row {
+      flex-wrap: wrap;
+    }
+    .guild-row label {
+      font-size: 0.8rem;
+    }
+    .guild-row input {
+      min-width: 0;
+      width: auto;
+    }
   }
 </style>

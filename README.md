@@ -60,6 +60,7 @@ Enter a guild ID at the top to scope all panels to that server.
 | **User List** | All guild members with avatars, display names, roles, and days in server. Supports fuzzy search and sortable columns. Click **Analyze** on any user |
 | **Say** | Send messages to a channel. Keeps a history of sent messages with delete-from-server functionality |
 | **Image Filter** | Manage SHA256 checksum watchlist. Images posted in any channel are compared against the list — matched images trigger a ban/kick and purge all user messages. A log of all moderation actions is shown |
+| **Text Filter** | Manage text pattern filters. Messages matching a pattern trigger warn/kick/ban. Includes a log of all matched actions |
 | **Full Report** | Detailed member report with message stats (Total Posts, Last Post) from SQLite. Saved to report history |
 | **Recent Reports** | Browse, download, and delete previously generated full reports and user analyses |
 | **Messages** | Browse per-channel message history from the SQLite archive with pagination |
@@ -99,6 +100,8 @@ Two storage layers:
 | `modlogs` | Image filter moderation actions | On ban/kick match |
 | `saylogs` | Say message history | On send |
 | `checksums` | Watched SHA256 checksums with labels | Via web panel |
+| `textfilters` | Text pattern filters (pattern, action, label) | Via web panel |
+| `textfilter_logs` | Text filter moderation log | On match |
 | `config` | Key/value settings (action: ban/kick) | Via web panel |
 
 Run `npm run backfill` once to scan all text channels and populate the message history. Set `GUILD_ID` in `.env` to target a single guild.
@@ -136,15 +139,16 @@ frontend/
     ├── app.css           # Theme CSS variables
     ├── App.svelte        # Guild selector + all panel cards
     └── lib/
-        ├── Card.svelte           # Collapsible card wrapper
+        ├── Card.svelte           # Collapsible card wrapper (entire header is collapse control)
         ├── BotStatus.svelte      # Bot info + ping
         ├── Say.svelte            # Send messages + history
         ├── ImageFilter.svelte    # Checksum watchlist + mod log
-        ├── QuickReport.svelte    # User list + analyze + analysis history
+        ├── TextFilter.svelte     # Text pattern filter management + log
+        ├── QuickReport.svelte    # User list + analyze + collapsible analysis section + past analyses
         ├── ReportPanel.svelte    # Shared report rendering (full report)
         ├── FullReport.svelte     # Full member report with stats
         ├── RecentReports.svelte  # Saved report history
-        └── Messages.svelte       # Per-channel message browser
+        └── Messages.svelte       # Per-channel message browser with pagination, filters, search, CSV export
 ```
 
 ## Frontend Development
@@ -161,6 +165,23 @@ The dev server runs on a different port; API calls are proxied to the Express ba
 The color scheme is defined in `frontend/src/app.css` using CSS custom properties:
 
 - `--background`, `--surface`, `--surface-alt`, `--primary`, `--text`, `--text-muted`, `--danger`
+
+### Responsive Design
+
+Shared CSS utilities in `app.css` handle responsive layout:
+
+- `.table-scroll` — wraps tables in a horizontally scrollable container with `-webkit-overflow-scrolling: touch`
+- `.row` — flex container with wrap, used for toolbar rows
+- `.add-row` — flex container that stacks vertically on screens ≤640px
+- Mobile breakpoints at 640px reduce padding, font sizes, and adjust layouts across all panels
+
+### Card Collapse
+
+Every panel card can be collapsed by clicking its header. The User Analysis section inside the User List card has its own independent collapse state, separate from the parent card.
+
+### State Persistence
+
+The last used guild ID is saved to `localStorage` under the key `dbot-last-guild-id` and restored on page load. No other state is persisted.
 
 ## Adding Slash Commands
 

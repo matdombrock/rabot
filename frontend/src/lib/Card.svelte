@@ -4,14 +4,17 @@
   export let expanded = false;
 
   $: if (expanded) collapsed = false;
+
+  function toggle() {
+    collapsed = !collapsed;
+  }
 </script>
 
 <div class="card">
-  <div class="card-header">
-    <h2 on:click={() => collapsed = !collapsed} on:keydown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); collapsed = !collapsed; }}} tabindex="0" role="button">{title}</h2>
-    <button class="collapse-btn" on:click={() => collapsed = !collapsed}>
-      {collapsed ? '▾' : '▴'}
-    </button>
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="card-header" on:click={toggle}>
+    <h2>{title}</h2>
+    <span class="collapse-icon">{collapsed ? '▾' : '▴'}</span>
   </div>
   <div class="card-body" class:collapsed>
     <slot />
@@ -25,28 +28,32 @@
     padding: 1.5rem;
     margin-bottom: 1rem;
   }
+  @media (max-width: 640px) {
+    .card {
+      padding: 1rem;
+    }
+  }
   .card-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
+    cursor: pointer;
+    user-select: none;
   }
+  .card-header:hover { opacity: 0.8; }
   .card-header h2 {
     margin-bottom: 0;
-    cursor: pointer;
     color: var(--text-muted);
     font-size: 1rem;
+    word-break: break-word;
+    hyphens: auto;
   }
-  .card-header h2:hover { opacity: 0.8; }
-  .collapse-btn {
-    background: none;
-    border: none;
+  .collapse-icon {
     color: var(--text-muted);
-    cursor: pointer;
-    font-size: 1rem;
-    padding: 0.25rem;
-    line-height: 1;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    margin-left: 0.5rem;
   }
-  .collapse-btn:hover { color: var(--text-bright); background: none; }
   .card-body.collapsed { display: none; }
 </style>

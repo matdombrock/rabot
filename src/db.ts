@@ -157,6 +157,27 @@ export function getGuildDb(guildId: string): DbType {
 
   try { db.exec("ALTER TABLE reports ADD COLUMN username TEXT NOT NULL DEFAULT ''"); } catch {}
 
+  // Migration for messages.deleted column (added for delete-message feature)
+  try { db.exec("ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0"); } catch {}
+
+  // Manual action log for mod actions (message deletions, etc.)
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS actionlogs (
+      id TEXT PRIMARY KEY,
+      guild_id TEXT NOT NULL,
+      guild_name TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      action TEXT NOT NULL,
+      target_id TEXT NOT NULL,
+      target_name TEXT NOT NULL DEFAULT '',
+      channel_id TEXT NOT NULL DEFAULT '',
+      channel_name TEXT NOT NULL DEFAULT '',
+      details TEXT NOT NULL DEFAULT ''
+    );
+  `);
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_actionlogs_guild ON actionlogs(guild_id)"); } catch {}
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_actionlogs_ts ON actionlogs(timestamp)"); } catch {}
+
   guildDbs.set(guildId, db);
   return db;
 }

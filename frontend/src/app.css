@@ -10,12 +10,86 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-body { font-family: system-ui, sans-serif; background: var(--background); color: var(--text); padding: 2rem; }
+body {
+  font-family: system-ui, sans-serif;
+  background: var(--background);
+  color: var(--text);
+  padding: 2rem;
+}
+@media (max-width: 640px) {
+  body { padding: 0.75rem; }
+}
 h1 { margin-bottom: 1.5rem; color: var(--primary); }
-select, button { padding: 0.5rem 1rem; border-radius: 4px; border: 1px solid var(--surface-alt); background: var(--surface-alt); color: var(--text); cursor: pointer; font-size: 0.9rem; }
+@media (max-width: 640px) {
+  h1 { font-size: 1.25rem; margin-bottom: 1rem; }
+}
+select, button {
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  border: 1px solid var(--surface-alt);
+  background: var(--surface-alt);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1.2;
+}
 button:hover { background: var(--primary); }
 button:disabled { opacity: 0.5; cursor: not-allowed; }
 select:hover { border-color: var(--primary); }
-input, textarea { background: var(--background); border: 1px solid var(--surface-alt); border-radius: 4px; padding: 0.5rem; color: var(--text); font-family: inherit; font-size: 0.85rem; resize: vertical; min-height: 80px; }
+input, textarea {
+  background: var(--background);
+  border: 1px solid var(--surface-alt);
+  border-radius: 4px;
+  padding: 0.5rem;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.85rem;
+  resize: vertical;
+  min-height: 80px;
+}
 input:focus, textarea:focus { outline: none; border-color: var(--primary); }
 input { min-height: unset; }
+
+/* Shared responsive utilities */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin-top: 0.5rem;
+  border-radius: 4px;
+}
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.add-row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+  margin-top: 0.5rem;
+}
+@media (max-width: 640px) {
+  .add-row {
+    flex-direction: column;
+  }
+  .add-row textarea,
+  .add-row select {
+    width: 100%;
+  }
+}
+.status {
+  margin-top: 0.5rem;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.btn-danger {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+.btn-danger:hover { background: #a03db8; }

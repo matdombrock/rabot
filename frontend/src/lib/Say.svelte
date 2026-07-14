@@ -74,11 +74,11 @@
 
 <h3 style="margin-top:1rem;font-size:1rem;color:var(--text-muted)">History</h3>
 <div class="status">{logStatus}</div>
-<div class="table-wrap">
+<div class="table-scroll">
   {#if logs.length === 0}
     <p style="color:var(--text-muted)">No messages sent yet.</p>
   {:else}
-    <table>
+    <table class="responsive-table">
       <thead><tr><th>Time</th><th>Channel</th><th>Content</th><th></th></tr></thead>
       <tbody>
         {#each logs as e}
@@ -95,15 +95,15 @@
 </div>
 
 <style>
-  .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
   textarea { width: 100%; margin-top: 0.5rem; }
-  .status { margin-top: 0.5rem; color: var(--text-muted); font-size: 0.85rem; }
-  .table-wrap { margin-top: 0.5rem; max-height: 50vh; overflow: auto; border-radius: 4px; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-  th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; color: var(--text); }
-  td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }
-  tr:hover td { background: var(--surface-alt); }
-  .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
-  .btn-danger { background: var(--danger); border-color: var(--danger); }
-  .btn-danger:hover { background: #a03db8; }
+  .responsive-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .responsive-table th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; color: var(--text); }
+  .responsive-table td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }
+  .responsive-table tr:hover td { background: var(--surface-alt); }
+  @media (max-width: 640px) {
+    .table-scroll { max-height: 40vh; }
+    .responsive-table { font-size: 0.7rem; }
+    .responsive-table th,
+    .responsive-table td { padding: 0.3rem 0.4rem; }
+  }
 </style>

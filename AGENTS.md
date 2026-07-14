@@ -42,6 +42,8 @@ Tables in `data.db`:
 | `modlogs` | Image filter moderation actions | On ban/kick match |
 | `saylogs` | Say message history | On send |
 | `checksums` | Watched SHA256 checksums with labels | Via web panel |
+| `textfilters` | Text pattern filters (pattern, action, label) | Via web panel |
+| `textfilter_logs` | Text filter moderation log | On match |
 | `config` | Key/value settings (action: ban/kick) | Via web panel |
 
 ## Always
@@ -87,26 +89,30 @@ src/
 frontend/
 └── src/
     ├── main.js
-    ├── app.css           # Theme CSS variables
-    ├── App.svelte        # Guild selector + all panel cards
+    ├── app.css           # Theme CSS variables + shared responsive utilities (.table-scroll, .row, .add-row, .status, .btn-sm)
+    ├── App.svelte        # Guild selector + all panel cards (persists last guild ID in localStorage)
     └── lib/
-        ├── Card.svelte           # Collapsible card wrapper
+        ├── Card.svelte           # Collapsible card wrapper (entire header is collapse control)
         ├── BotStatus.svelte      # Bot info + ping
         ├── Say.svelte            # Send messages + history
         ├── ImageFilter.svelte    # Checksum watchlist + mod log
-        ├── QuickReport.svelte    # User list + analyze + analysis history
+        ├── TextFilter.svelte     # Text pattern filter management + log
+        ├── QuickReport.svelte    # User list + analyze + collapsible analysis section + past analyses
         ├── ReportPanel.svelte    # Shared report rendering (full report)
         ├── FullReport.svelte     # Full member report with stats
         ├── RecentReports.svelte  # Saved report history
-        └── Messages.svelte       # Per-channel message browser
+        └── Messages.svelte       # Per-channel message browser with pagination, filters, search, CSV export
 ```
 
 ## Key Patterns
 
 - **Web panel** is a Svelte SPA — all data fetching via `fetch()` to the Express API on the same origin
-- **Guild ID** is entered at the top of the page, passed to all panels as a prop
+- **Guild ID** is entered at the top of the page, passed to all panels as a prop. Last used guild ID is persisted to `localStorage` and restored on page load.
+- **Card collapse** — the entire `.card-header` is clickable to collapse/expand each panel. The User Analysis section within QuickReport has its own independent collapse state.
+- **Responsive** — shared CSS utilities (`.table-scroll`, `.row`, `.add-row`, `.btn-sm`) in `app.css` with mobile breakpoints at 640px. Tables use horizontal scroll on small screens. `.add-row` stacks vertically on mobile.
+- **Messages CSV export** — exported client-side from the currently loaded (filtered or unfiltered) message array. No backend round-trip needed.
 - **Image checksums** are computed by streaming from Discord's CDN — no temp files
 - **Message stats** are queried from SQLite, not stored separately — `SELECT COUNT(*), MAX(created_at) FROM messages WHERE author_id = ?`
 - **Live tracking** happens in `messageCreate` — one SQLite insert per message + member upsert
 - **Backfill** uses batched inserts via `db.transaction()` and `INSERT OR IGNORE` for idempotency
-- **CSS theming** is via `var(--primary)`, `var(--surface)`, etc. in `frontend/src/app.css`
+- **CSS theming** is via `var(--primary)`, `var(--surface)`, etc. in `frontend/src/app.css`. Never hardcode colors in components.

@@ -28,6 +28,7 @@
   let analysisError = '';
   let analysisHistory = [];
   let viewingPastId = null;
+  let analysisCollapsed = false;
 
   async function loadHistory() {
     if (!guildId) { analysisHistory = []; return; }
@@ -234,79 +235,87 @@
 </script>
 
 <div class="analysis-card">
-  <div class="analysis-header">
+  <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+  <div class="analysis-header" on:click={() => analysisCollapsed = !analysisCollapsed}>
     <h3 style="margin:0;font-size:1rem;color:var(--text)">
       User Analysis
       {#if analysisLoading}— loading...{/if}
     </h3>
-    <div class="row">
+    <div class="analysis-header-right">
       {#if analysis && !analysisLoading}
-        <button class="btn-sm" on:click={downloadAnalysis}>Download</button>
+        <button class="btn-sm" on:click|stopPropagation={downloadAnalysis}>Download</button>
       {/if}
       {#if analysis || viewingPastId}
-        <button class="btn-sm" on:click={closeAnalysis}>Close</button>
+        <button class="btn-sm" on:click|stopPropagation={closeAnalysis}>Close</button>
       {/if}
+      <span class="collapse-icon">{analysisCollapsed ? '▾' : '▴'}</span>
     </div>
   </div>
 
-  {#if !guildId}
-    <p style="color:var(--text-muted)">Select a guild to analyze users.</p>
-  {:else if analysisLoading}
-    <p style="color:var(--text-muted)">Loading...</p>
-  {:else if analysisError}
-    <p style="color:var(--danger)">Error: {analysisError}</p>
-  {:else if analysis}
-    <div class="analysis-body">
-      {#if analysis.avatarUrl}
-        <img src={analysis.avatarUrl} alt="" class="analysis-avatar" />
-      {/if}
-      <table class="analysis-table">
-        <tbody>
-          <tr><td>Username</td><td>{analysis.username}</td></tr>
-          <tr><td>Display Name</td><td>{analysis.displayName}</td></tr>
-          <tr><td>User ID</td><td>{analysis.userId}</td></tr>
-          <tr><td>Discord Join Date</td><td>{new Date(analysis.discordJoinDate).toLocaleString()}</td></tr>
-          <tr><td>Guild Join Date</td><td>{analysis.guildJoinDate ? new Date(analysis.guildJoinDate).toLocaleString() : 'N/A'}</td></tr>
-          <tr><td>Days in Server</td><td>{analysis.daysInServer}</td></tr>
-          <tr><td>Account Age</td><td>{analysis.accountAgeDays} days</td></tr>
-          <tr><td>Top Role</td><td>{analysis.topRole}</td></tr>
-          <tr><td>Roles</td><td>{analysis.roles.join(', ')}</td></tr>
-          <tr><td>Boosting</td><td>{analysis.isBoosting ? 'Yes' : 'No'}</td></tr>
-          <tr><td>Bot</td><td>{analysis.isBot ? 'Yes' : 'No'}</td></tr>
-          <tr><td>Total Messages</td><td>{analysis.totalMessages}</td></tr>
-          <tr><td>Last Post</td><td>{analysis.lastPostDate ? new Date(analysis.lastPostDate).toLocaleString() : 'N/A'}</td></tr>
-        </tbody>
-      </table>
-    </div>
-  {:else}
-    <p style="color:var(--text-muted)">Click <strong>Analyze</strong> on a user above, or select a past analysis below.</p>
-  {/if}
+  <div class:collapsed={analysisCollapsed}>
+    {#if !guildId}
+      <p style="color:var(--text-muted)">Select a guild to analyze users.</p>
+    {:else if analysisLoading}
+      <p style="color:var(--text-muted)">Loading...</p>
+    {:else if analysisError}
+      <p style="color:var(--danger)">Error: {analysisError}</p>
+    {:else if analysis}
+      <div class="analysis-body">
+        {#if analysis.avatarUrl}
+          <img src={analysis.avatarUrl} alt="" class="analysis-avatar" />
+        {/if}
+        <div class="table-scroll" style="flex:1">
+          <table class="analysis-table">
+            <tbody>
+              <tr><td>Username</td><td>{analysis.username}</td></tr>
+              <tr><td>Display Name</td><td>{analysis.displayName}</td></tr>
+              <tr><td>User ID</td><td>{analysis.userId}</td></tr>
+              <tr><td>Discord Join Date</td><td>{new Date(analysis.discordJoinDate).toLocaleString()}</td></tr>
+              <tr><td>Guild Join Date</td><td>{analysis.guildJoinDate ? new Date(analysis.guildJoinDate).toLocaleString() : 'N/A'}</td></tr>
+              <tr><td>Days in Server</td><td>{analysis.daysInServer}</td></tr>
+              <tr><td>Account Age</td><td>{analysis.accountAgeDays} days</td></tr>
+              <tr><td>Top Role</td><td>{analysis.topRole}</td></tr>
+              <tr><td>Roles</td><td>{analysis.roles.join(', ')}</td></tr>
+              <tr><td>Boosting</td><td>{analysis.isBoosting ? 'Yes' : 'No'}</td></tr>
+              <tr><td>Bot</td><td>{analysis.isBot ? 'Yes' : 'No'}</td></tr>
+              <tr><td>Total Messages</td><td>{analysis.totalMessages}</td></tr>
+              <tr><td>Last Post</td><td>{analysis.lastPostDate ? new Date(analysis.lastPostDate).toLocaleString() : 'N/A'}</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {:else}
+      <p style="color:var(--text-muted)">Click <strong>Analyze</strong> on a user above, or select a past analysis below.</p>
+    {/if}
 
-  {#if analysisHistory.length > 0}
-    <h4 style="margin-top:0.75rem;margin-bottom:0.5rem;font-size:0.85rem;color:var(--text-muted)">Past Analyses</h4>
-    <table class="analysis-table">
-      <thead>
-        <tr>
-          <th style="text-align:left;color:var(--text-muted);font-weight:normal">User</th>
-          <th style="text-align:left;color:var(--text-muted);font-weight:normal">Generated</th>
-          <th style="text-align:left;color:var(--text-muted);font-weight:normal">Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each analysisHistory as r}
-          <tr>
-            <td>{r.username || '—'}</td>
-            <td>{new Date(r.generated).toLocaleString()}</td>
-            <td>
-              <button class="btn-sm" on:click={() => viewPast(r.id)}>View</button>
-              <button class="btn-sm" on:click={() => downloadPast(r.id)}>Download</button>
-              <button class="btn-sm btn-danger" on:click={() => deletePast(r.id)}>Delete</button>
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  {/if}
+    {#if analysisHistory.length > 0}
+      <h4 style="margin-top:0.75rem;margin-bottom:0.5rem;font-size:0.85rem;color:var(--text-muted)">Past Analyses</h4>
+      <div class="table-scroll">
+        <table class="responsive-table">
+          <thead>
+            <tr>
+              <th style="text-align:left;color:var(--text-muted);font-weight:normal">User</th>
+              <th style="text-align:left;color:var(--text-muted);font-weight:normal">Generated</th>
+              <th style="text-align:left;color:var(--text-muted);font-weight:normal">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each analysisHistory as r}
+              <tr>
+                <td>{r.username || '—'}</td>
+                <td class="nowrap">{new Date(r.generated).toLocaleString()}</td>
+                <td class="action-cell">
+                  <button class="btn-sm" on:click={() => viewPast(r.id)}>View</button>
+                  <button class="btn-sm" on:click={() => downloadPast(r.id)}>Download</button>
+                  <button class="btn-sm btn-danger" on:click={() => deletePast(r.id)}>Delete</button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+  </div>
 </div>
 
 <div class="row">
@@ -362,9 +371,9 @@
 
 <div class="status">{status}</div>
 
-<div class="table-wrap">
+<div class="table-scroll">
   {#if headers.length > 0}
-    <table>
+    <table class="responsive-table">
       <thead>
         <tr>
           {#each headers as h, i}
@@ -390,21 +399,16 @@
 </div>
 
 <style>
-  .row { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
-  .status { margin-top: 0.5rem; color: var(--text-muted); font-size: 0.85rem; }
-  .table-wrap { margin-top: 1rem; max-height: 70vh; overflow: auto; border-radius: 4px; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
-  th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; cursor: pointer; user-select: none; color: var(--text); }
-  th:hover { filter: brightness(1.2); }
-  th::after { content: " \25B2"; font-size: 0.6rem; opacity: 0.4; }
-  th.sort-asc::after { content: " \25B2"; opacity: 1; }
-  th.sort-desc::after { content: " \25BC"; opacity: 1; }
-  td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }
-  tr:hover td { background: var(--surface-alt); }
+  .table-scroll { margin-top: 1rem; max-height: 70vh; }
+  .responsive-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .responsive-table th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; cursor: pointer; user-select: none; color: var(--text); }
+  .responsive-table th:hover { filter: brightness(1.2); }
+  .responsive-table th::after { content: " \25B2"; font-size: 0.6rem; opacity: 0.4; }
+  .responsive-table th.sort-asc::after { content: " \25B2"; opacity: 1; }
+  .responsive-table th.sort-desc::after { content: " \25BC"; opacity: 1; }
+  .responsive-table td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }
+  .responsive-table tr:hover td { background: var(--surface-alt); }
   .avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; vertical-align: middle; }
-  .btn-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; }
-  .btn-danger { background: var(--danger); border-color: var(--danger); }
-  .btn-danger:hover { background: #a03db8; }
   .role-autocomplete { position: relative; display: inline-block; }
   .name-autocomplete { position: relative; display: inline-block; }
   .name-dropdown, .role-dropdown {
@@ -431,21 +435,45 @@
     padding: 1rem;
     margin-bottom: 1rem;
   }
+  .collapsed { display: none; }
   .analysis-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.75rem;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    cursor: pointer;
+    user-select: none;
+  }
+  .analysis-header:hover { opacity: 0.8; }
+  .analysis-header-right {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .collapse-icon {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    flex-shrink: 0;
   }
   .analysis-body {
     display: flex;
     gap: 1rem;
     align-items: flex-start;
   }
-  .analysis-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; }
+  .analysis-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
   .analysis-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
   .analysis-table td { padding: 0.3rem 0.5rem; border: none; }
   .analysis-table td:first-child { color: var(--text-muted); width: 160px; }
   .analysis-table th { padding: 0.3rem 0.5rem; border: none; background: none; cursor: default; }
   .analysis-table th::after { content: none; }
+  @media (max-width: 640px) {
+    .responsive-table { font-size: 0.7rem; }
+    .responsive-table th,
+    .responsive-table td { padding: 0.3rem 0.4rem; }
+    .analysis-body { flex-direction: column; align-items: center; }
+    .analysis-avatar { width: 48px; height: 48px; }
+    .analysis-table td:first-child { width: 110px; }
+  }
 </style>
