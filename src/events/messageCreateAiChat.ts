@@ -23,9 +23,16 @@ const messageCreateAiChat: Event = {
 
     // Check if AI chat is enabled for this guild
     const enabledRow = db.prepare("SELECT value FROM config WHERE key = 'aichat_enabled'").get() as { value: string } | undefined;
-    if (enabledRow?.value !== "true") return;
+    if (enabledRow?.value !== "true") {
+      await message.reply("Hi, I'm rb-zero. Created by Replicat. My 'brain' is currently disabled. Beep boop.").catch(() => {});
+      return;
+    }
 
     if (!config.openrouter.apiKey) return;
+
+    // Use per-guild custom prompt if set, otherwise fall back to default
+    const customPromptRow = db.prepare("SELECT value FROM config WHERE key = 'aichat_prompt'").get() as { value: string } | undefined;
+    const systemPrompt = customPromptRow?.value || SYSTEM_PROMPT;
 
     // Send an immediate acknowledgment
     const ack = await message.reply("brewing some slop...");
@@ -67,7 +74,7 @@ const messageCreateAiChat: Event = {
         body: JSON.stringify({
           model: config.openrouter.model,
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: systemPrompt },
             { role: "user", content: prompt },
           ],
           max_tokens: maxTokens ?? 1000,

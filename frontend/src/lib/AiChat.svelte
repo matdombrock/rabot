@@ -2,8 +2,12 @@
   export let guildId = '';
 
   let enabled = false;
+  let prompt = '';
+  let promptDraft = '';
   let logs = [];
   let loading = false;
+  let saving = false;
+  let saveMsg = '';
 
   async function load() {
     if (!guildId) { logs = []; return; }
@@ -13,6 +17,8 @@
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       enabled = data.enabled;
+      prompt = data.prompt || '';
+      promptDraft = prompt;
       logs = data.logs || [];
     } catch (err) {
       console.error(err);
@@ -32,6 +38,31 @@
     }
   }
 
+  async function savePrompt() {
+    saving = true;
+    saveMsg = '';
+    try {
+      const r = await fetch(`/api/guild/${guildId}/ai-chat/prompt`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: promptDraft }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      prompt = promptDraft;
+      saveMsg = 'Saved';
+      setTimeout(() => saveMsg = '', 2000);
+    } catch (err) {
+      console.error(err);
+      saveMsg = 'Failed to save';
+    } finally {
+      saving = false;
+    }
+  }
+
+  function resetPrompt() {
+    promptDraft = '';
+  }
+
   async function deleteLog(id) {
     if (!confirm('Delete this chat entry?')) return;
     try {
@@ -41,6 +72,10 @@
       console.error(err);
     }
   }
+
+  $: promptDirty = promptDraft !== prompt;
+  $: charCount = promptDraft.length;
+  $: charClass = charCount > 900 ? 'warn' : charCount > 1024 ? 'over' : '';
 
   $: if (guildId) load();
 </script>
@@ -53,6 +88,35 @@
       <span class="toggle-slider"></span>
     </label>
     <span class="toggle-hint">{enabled ? 'Enabled — mention the bot in any channel to chat' : 'Disabled'}</span>
+  </div>
+
+  <div class="prompt-section">
+    <div class="prompt-header">
+      <span class="prompt-label">System Prompt</span>
+      <span class="prompt-hint">Per-guild override. Leave empty to use the default.</span>
+    </div>
+    <textarea
+      class="prompt-editor"
+      bind:value={promptDraft}
+      placeholder="Enter a custom system prompt for this guild, or leave empty for the default..."
+      rows="6"
+      maxlength="1024"
+    ></textarea>
+    <div class="prompt-char-count {charClass}">{charCount}/1024</div>
+    <div class="prompt-actions">
+      <button class="btn-sm" on:click={savePrompt} disabled={saving || !promptDirty}>
+        {saving ? 'Saving...' : 'Save'}
+      </button>
+      {#if saveMsg}
+        <span class="save-msg">{saveMsg}</span>
+      {/if}
+      {#if promptDirty}
+        <button class="btn-sm" on:click={() => { promptDraft = prompt; }}>Cancel</button>
+      {/if}
+      {#if prompt}
+        <button class="btn-sm" on:click={resetPrompt} title="Clear custom prompt to fall back to default">Reset to default</button>
+      {/if}
+    </div>
   </div>
 
   {#if logs.length > 0}
@@ -124,6 +188,52 @@
   }
   .toggle input:checked + .toggle-slider { background: var(--primary); }
   .toggle input:checked + .toggle-slider::before { transform: translateX(16px); background: var(--text-bright); }
+  .prompt-section {
+    background: var(--background);
+    border-radius: 6px;
+    padding: 0.6rem 0.75rem;
+  }
+  .prompt-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+  }
+  .prompt-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  .prompt-hint {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+  }
+  .prompt-editor {
+    width: 100%;
+    min-height: 100px;
+    font-size: 0.85rem;
+    font-family: inherit;
+    resize: vertical;
+  }
+  .prompt-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+  }
+  .save-msg {
+    font-size: 0.8rem;
+    color: var(--primary);
+  }
+  .prompt-char-count {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-align: right;
+    margin-top: 0.25rem;
+  }
+  .prompt-char-count.warn {
+    color: #e0a020;
+  }
   .log-list {
     display: flex;
     flex-direction: column;

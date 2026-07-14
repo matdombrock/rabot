@@ -580,8 +580,9 @@ export function createWebServer(client: Client) {
     try {
       const db = getGuildDb(req.params.guildId);
       const enabledRow = db.prepare("SELECT value FROM config WHERE key = 'aichat_enabled'").get() as { value: string } | undefined;
+      const promptRow = db.prepare("SELECT value FROM config WHERE key = 'aichat_prompt'").get() as { value: string } | undefined;
       const logs = db.prepare("SELECT * FROM ai_chat_log WHERE guild_id = ? ORDER BY created_at DESC LIMIT 100").all(req.params.guildId);
-      res.json({ enabled: enabledRow?.value === "true", logs });
+      res.json({ enabled: enabledRow?.value === "true", prompt: promptRow?.value ?? "", logs });
     } catch (err) {
       console.error("AI chat fetch failed:", err);
       res.status(500).json({ error: "Failed to fetch AI chat data" });
@@ -598,6 +599,25 @@ export function createWebServer(client: Client) {
     } catch (err) {
       console.error("AI chat toggle failed:", err);
       res.status(500).json({ error: "Failed to toggle AI chat" });
+    }
+  });
+
+  app.put("/api/guild/:guildId/ai-chat/prompt", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const { prompt } = req.body;
+      if (typeof prompt !== "string") { res.status(400).json({ error: "Missing prompt" }); return; }
+      if (prompt.length > 1024) { res.status(400).json({ error: "Prompt must be 1024 characters or fewer" }); return; }
+      const existing = db.prepare("SELECT value FROM config WHERE key = 'aichat_prompt'").get() as { value: string } | undefined;
+      if (existing) {
+        db.prepare("UPDATE config SET value = ? WHERE key = 'aichat_prompt'").run(prompt);
+      } else {
+        db.prepare("INSERT INTO config (key, value) VALUES ('aichat_prompt', ?)").run(prompt);
+      }
+      res.json({ ok: true, prompt });
+    } catch (err) {
+      console.error("AI chat prompt save failed:", err);
+      res.status(500).json({ error: "Failed to save prompt" });
     }
   });
 
