@@ -9,11 +9,13 @@
   import RecentReports from './lib/RecentReports.svelte'
   import Messages from './lib/Messages.svelte'
   import Analytics from './lib/Analytics.svelte'
+  import Settings from './lib/Settings.svelte'
   import ModLog from './lib/ModLog.svelte'
 
   const STORAGE_KEY = 'dbot-last-guild-id';
   const ORDER_KEY = 'dbot-pane-order';
   const STATE_KEY = 'dbot-pane-state';
+  const SETTINGS_KEY = 'dbot-settings';
 
   // Pane definitions — name must be unique and stable for localStorage keys
   const paneDefs = [
@@ -25,6 +27,7 @@
     { key: 'text-filter', title: 'Text Filter', description: 'Manage text pattern filters with warn/kick/ban actions', component: TextFilter },
     { key: 'recent-reports', title: 'Recent Reports', description: 'Browse, download, and delete generated reports and analyses', component: RecentReports },
     { key: 'messages', title: 'Messages', description: 'Browse per-channel message history with search, filters, and export', component: Messages },
+    { key: 'settings', title: 'Settings', description: 'Configure dashboard and bot settings', component: Settings },
     { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', component: ModLog },
   ];
 
@@ -42,6 +45,7 @@
   let paneOrder = [];
   // Collapsed state per pane key
   let paneCollapsed = {};
+  let dashboardSettings = {};
 
   // Drag state
   let dragIndex = -1;
@@ -94,6 +98,41 @@
     return {};
   }
 
+  function loadSettings() {
+    try {
+      const saved = localStorage.getItem(SETTINGS_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { showTips: true, showQuickSearch: true };
+  }
+
+  function saveSettings() {
+    try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(dashboardSettings)); } catch {}
+  }
+
+  function onSettingChange(e) {
+    dashboardSettings = { ...dashboardSettings, [e.detail.key]: e.detail.value };
+    saveSettings();
+  }
+
+  function onResetOrder() {
+    paneOrder = paneDefs.map(p => p.key);
+    saveOrder();
+  }
+
+  function onResetAll() {
+    try {
+      localStorage.removeItem(ORDER_KEY);
+      localStorage.removeItem(STATE_KEY);
+      localStorage.removeItem(SETTINGS_KEY);
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {}
+    paneOrder = paneDefs.map(p => p.key);
+    paneCollapsed = {};
+    dashboardSettings = { showTips: true, showQuickSearch: true };
+    guildId = '';
+  }
+
   function onCollapsedChange(key, collapsed) {
     paneCollapsed = { ...paneCollapsed, [key]: collapsed };
     saveState();
@@ -135,9 +174,10 @@
   }
 
   onMount(async () => {
-    // Restore pane order and state
+    // Restore pane order, state, and settings
     paneOrder = loadOrder();
     paneCollapsed = loadState();
+    dashboardSettings = loadSettings();
 
     const r = await fetch('/api/guilds');
     guilds = await r.json();
@@ -179,9 +219,11 @@
   </div>
 </div>
 
+{#if dashboardSettings.showQuickSearch !== false}
 <Card title="Quick Search" expanded={true}>
   <input type="text" placeholder="Type to filter panes..." bind:value={paneSearch} class="pane-search-input" />
 </Card>
+{/if}
 
 {#each orderedPanes as pane, i (pane.key)}
   <div
@@ -218,10 +260,20 @@
         >
           <Messages {guildId} on:analyzeUser={(e) => onAnalyzeUser(e.detail)} />
         </Card>
+      {:else if pane.key === 'settings'}
+        <Card
+          title={pane.title}
+          description={dashboardSettings.showTips !== false ? pane.description : ''}
+          collapseAll={!!paneSearch}
+          collapsedState={paneCollapsed[pane.key]}
+          on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
+        >
+          <Settings {guildId} settings={dashboardSettings} on:change={onSettingChange} on:resetOrder={onResetOrder} on:resetAll={onResetAll} />
+        </Card>
       {:else}
         <Card
           title={pane.title}
-          description={pane.description}
+          description={dashboardSettings.showTips !== false ? pane.description : ''}
           collapseAll={!!paneSearch}
           collapsedState={paneCollapsed[pane.key]}
           on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
