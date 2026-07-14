@@ -1,4 +1,4 @@
-# dbot
+# rb-zero
 
 A Discord bot with a Svelte web control panel. Moderates images via SHA256 checksum matching, generates user analysis, and provides a web panel for management.
 

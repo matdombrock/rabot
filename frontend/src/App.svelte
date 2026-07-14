@@ -15,10 +15,10 @@
   import ModLog from './lib/ModLog.svelte'
   import AvatarPopup from './lib/AvatarPopup.svelte'
 
-  const STORAGE_KEY = 'dbot-last-guild-id';
-  const ORDER_KEY = 'dbot-pane-order';
-  const STATE_KEY = 'dbot-pane-state';
-  const SETTINGS_KEY = 'dbot-settings';
+  const STORAGE_KEY = 'rb-zero-last-guild-id';
+  const ORDER_KEY = 'rb-zero-pane-order';
+  const STATE_KEY = 'rb-zero-pane-state';
+  const SETTINGS_KEY = 'rb-zero-settings';
 
   // Pane definitions — name must be unique and stable for localStorage keys
   const paneDefs = [
@@ -243,7 +243,7 @@
 
 <header class="sticky-header">
   <div class="header-top">
-    <h1><img src="/avatar.png" alt="" class="header-logo" /> Bot Control Panel</h1>
+    <h1><img src="/avatar.png" alt="" class="header-logo" /> rb-zero</h1>
     <button class="header-settings-btn" on:click={focusSettings} title="Settings">
       <i class="fa-solid fa-gear"></i>
     </button>

@@ -63,8 +63,22 @@ export function createWebServer(client: Client) {
 
   app.get("/api/guild/:guildId/members", async (req, res) => {
     const db = getGuildDb(req.params.guildId);
-    const rows = db.prepare("SELECT id, username, display_name, avatar_url FROM members ORDER BY username ASC").all();
+    const rows = db.prepare("SELECT id, username, display_name, avatar_url, watched FROM members ORDER BY username ASC").all();
     res.json(rows);
+  });
+
+  app.put("/api/guild/:guildId/members/:userId/watch", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const member = db.prepare("SELECT watched FROM members WHERE id = ?").get(req.params.userId) as { watched: number } | undefined;
+      if (!member) { res.status(404).json({ error: "Member not found" }); return; }
+      const newVal = member.watched ? 0 : 1;
+      db.prepare("UPDATE members SET watched = ? WHERE id = ?").run(newVal, req.params.userId);
+      res.json({ watched: !!newVal });
+    } catch (err) {
+      console.error("Watch toggle failed:", err);
+      res.status(500).json({ error: "Failed to toggle watch" });
+    }
   });
 
   app.get("/api/guild/:guildId/messages/:channelId", async (req, res) => {

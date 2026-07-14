@@ -2,6 +2,7 @@
   import { createEventDispatcher } from 'svelte';
   import UserSearchBox from './UserSearchBox.svelte';
   import AvatarPopup from './AvatarPopup.svelte';
+  import { tick } from 'svelte';
 
   let avatarPopup = { show: false, url: '', name: '' };
 
@@ -23,6 +24,8 @@
   let roleInput = '';
   let roleFilter = '';
   let showRoleDropdown = false;
+  let watchFilter = false;
+  let memberWatch = {};
   let sortCol = -1;
   let sortAsc = true;
   let headers = [];
@@ -83,6 +86,7 @@
     let data = rawData;
     if (nameFilter) data = data.filter(r => r[0] === nameFilter);
     if (roleFilter) data = data.filter(r => r[4] === roleFilter);
+    if (watchFilter) data = data.filter(r => memberWatch[r[0]]);
     return data;
   }
 
@@ -108,6 +112,15 @@
       guildName = data.guildName;
       totalMembers = data.totalMembers;
       onlineCount = data.onlineCount;
+      // Load watch states
+      const membersR = await fetch(`/api/guild/${guildId}/members`);
+      if (membersR.ok) {
+        const memberList = await membersR.json();
+        memberWatch = {};
+        for (const m of memberList) {
+          memberWatch[m.id] = !!m.watched;
+        }
+      }
       const lines = csv.split('\n').filter(l => l.trim());
       if (lines.length > 1) {
         rawData = lines.slice(1).map(l => parseRow(l));
@@ -142,6 +155,17 @@
     URL.revokeObjectURL(url);
   }
 
+  async function toggleWatch(userId) {
+    try {
+      const r = await fetch(`/api/guild/${guildId}/members/${userId}/watch`, { method: 'PUT' });
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      memberWatch = { ...memberWatch, [userId]: data.watched };
+    } catch (err) {
+      console.error('Toggle watch failed:', err);
+    }
+  }
+
   function analyzeUser(userId) {
     dispatch('analyzeUser', userId);
   }
@@ -172,6 +196,7 @@
 <div class="row">
   <button on:click={run} disabled={loading || !guildId}>Update</button>
   <button on:click={downloadCsv} disabled={!csv}>Export CSV</button>
+  <button on:click={() => { watchFilter = !watchFilter; render(); }} class:active={watchFilter}>Watch List</button>
 </div>
 
 <div class="row" style="margin-top:0.5rem">
@@ -233,6 +258,7 @@
             {/each}
             <td style="font-family:monospace;font-size:0.75rem">{row[0]}</td>
             <td class="action-cell">
+              <button class="btn-sm" class:btn-watched={memberWatch[row[0]]} on:click={() => toggleWatch(row[0])}>Watch</button>
               <button class="btn-sm" on:click={() => analyzeUser(row[0])}>Scan</button>
               <button class="btn-sm" on:click={() => viewMessages(row[0])}>Messages</button>
             </td>
@@ -296,6 +322,8 @@
     background: none; color: var(--text); cursor: pointer; text-align: left;
   }
   .role-option:hover { background: var(--surface-alt); }
+  .btn-watched { background: var(--primary); border-color: var(--primary); }
+  button.active { background: var(--primary); }
   .name-badge, .role-badge {
     display: inline-flex; align-items: center; gap: 0.25rem;
     padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.8rem;

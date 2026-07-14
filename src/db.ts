@@ -69,6 +69,7 @@ export function getGuildDb(guildId: string): DbType {
       guild_join_date TEXT,
       top_role TEXT,
       is_bot INTEGER DEFAULT 0,
+      watched INTEGER DEFAULT 0,
       updated_at TEXT NOT NULL
     );
 
@@ -164,6 +165,7 @@ export function getGuildDb(guildId: string): DbType {
   try { db.exec("ALTER TABLE reports ADD COLUMN ai_score INTEGER DEFAULT NULL"); } catch {}
   try { db.exec("ALTER TABLE reports ADD COLUMN message_count INTEGER DEFAULT 0"); } catch {}
   try { db.exec("ALTER TABLE reports ADD COLUMN channel_id TEXT NOT NULL DEFAULT ''"); } catch {}
+  try { db.exec("ALTER TABLE members ADD COLUMN watched INTEGER DEFAULT 0"); } catch {}
 
   // Migration for messages.deleted column (added for delete-message feature)
   try { db.exec("ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0"); } catch {}

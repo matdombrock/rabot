@@ -69,7 +69,7 @@ const messageCreate: Event = {
 
     const member = message.member;
     if (member) {
-      db.prepare(`INSERT INTO members (id, username, display_name, avatar_url, discord_join_date, guild_join_date, top_role, is_bot, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET username=excluded.username, display_name=excluded.display_name, avatar_url=excluded.avatar_url, top_role=excluded.top_role, updated_at=excluded.updated_at`).run(
+      db.prepare(`INSERT INTO members (id, username, display_name, avatar_url, discord_join_date, guild_join_date, top_role, is_bot, watched, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0, ?) ON CONFLICT(id) DO UPDATE SET username=excluded.username, display_name=excluded.display_name, avatar_url=excluded.avatar_url, top_role=excluded.top_role, updated_at=excluded.updated_at`).run(
         message.author.id, message.author.username, member.displayName, member.displayAvatarURL({ size: 64 }),
         message.author.createdAt.toISOString(), member.joinedAt?.toISOString() ?? null, member.roles.highest.name, message.author.bot ? 1 : 0, now
       );
