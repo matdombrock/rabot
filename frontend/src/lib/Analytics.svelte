@@ -1,6 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte';
   import { Chart, registerables } from 'chart.js';
+  import Sortable from 'sortablejs';
 
   Chart.register(...registerables);
 
@@ -33,23 +34,35 @@
     chartRows = rows;
   }
 
-  let dragIndex = -1;
-  let dragOverIndex = -1;
+  let sortableInstance = null;
+  let orderLocked = true;
 
-  function onDragStart(index) { dragIndex = index; }
-  function onDragOver(e, index) { e.preventDefault(); dragOverIndex = index; }
-  function onDragLeave() { dragOverIndex = -1; }
-  function onDrop(index) {
-    if (dragIndex === -1 || dragIndex === index) { dragIndex = -1; dragOverIndex = -1; return; }
-    const newOrder = [...chartOrder];
-    const [moved] = newOrder.splice(dragIndex, 1);
-    newOrder.splice(index, 0, moved);
-    chartOrder = newOrder;
-    dragIndex = -1;
-    dragOverIndex = -1;
-    tick().then(() => renderCharts());
+  function initChartSortable() {
+    const el = document.getElementById('chart-container');
+    if (!el) return;
+    if (sortableInstance) sortableInstance.destroy();
+    sortableInstance = new Sortable(el, {
+      animation: 200,
+      handle: '.chart-section',
+      draggable: '.chart-section',
+      disabled: orderLocked,
+      onEnd: (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        const newOrder = [...chartOrder];
+        const [moved] = newOrder.splice(evt.oldIndex, 1);
+        newOrder.splice(evt.newIndex, 0, moved);
+        chartOrder = newOrder;
+        tick().then(() => renderCharts());
+      },
+    });
   }
-  function onDragEnd() { dragIndex = -1; dragOverIndex = -1; }
+
+  function toggleOrderLock() {
+    orderLocked = !orderLocked;
+    if (sortableInstance) {
+      sortableInstance.option('disabled', orderLocked);
+    }
+  }
 
   // Controls
   let timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -68,10 +81,11 @@
     load();
   }
 
-  // Re-render charts whenever data changes
+  // Re-render charts whenever data changes, then init Sortable
   $: if (data) {
     tick().then(() => {
       renderCharts();
+      initChartSortable();
     });
   }
 
@@ -527,30 +541,19 @@
         </select>
       </div>
       <div class="timezone-label"><i class="fa-solid fa-clock"></i> {timezone}</div>
+      <button class="btn-sm" on:click={toggleOrderLock}><i class="fa-solid {orderLocked ? 'fa-lock' : 'fa-lock-open'}"></i> Order</button>
     </div>
 
-    {#each chartRows as row, ri}
-      <div class="charts-row">
-        {#each row as item, ci}
-          {@const globalIndex = ri * 2 + ci}
-          <div
-            class="chart-section"
-            class:drag-over={dragOverIndex === globalIndex && dragIndex !== globalIndex}
-            draggable={true}
-            on:dragstart={() => onDragStart(globalIndex)}
-            on:dragover={(e) => onDragOver(e, globalIndex)}
-            on:dragleave={onDragLeave}
-            on:drop={() => onDrop(globalIndex)}
-            on:dragend={onDragEnd}
-          >
-            <h3>{item.title}</h3>
-            <div class="chart-wrap">
-              <canvas id={item.id}></canvas>
-            </div>
-          </div>
-        {/each}
+    <div id="chart-container">
+    {#each chartOrder as item}
+      <div class="chart-section" data-id={item.id}>
+        <h3>{item.title}</h3>
+        <div class="chart-wrap">
+          <canvas id={item.id}></canvas>
+        </div>
       </div>
     {/each}
+    </div>
   </div>
 {/if}
 
@@ -621,22 +624,24 @@
     font-size: 0.85rem;
     min-width: 120px;
   }
-  .charts-row {
-    display: grid;
-    grid-template-columns: 1fr;
+  #chart-container {
+    display: flex;
+    flex-wrap: wrap;
     gap: 1rem;
+    min-height: 1px;
   }
   .chart-section {
-    cursor: grab;
+    flex: 1 1 calc(50% - 0.5rem);
+    min-width: 280px;
+    cursor: default;
     border: 2px solid transparent;
     border-radius: 6px;
     padding: 0.25rem;
     transition: border-color 0.15s;
   }
   .chart-section:active { cursor: grabbing; }
-  .chart-section.drag-over {
-    border-color: var(--primary);
-  }
+  .chart-section.sortable-ghost { opacity: 0.3; }
+  .chart-section.sortable-ghost .chart-wrap { outline: 2px dashed var(--primary); outline-offset: -2px; border-radius: 6px; }
   @media (min-width: 900px) {
     .charts-row {
       grid-template-columns: 1fr 1fr;

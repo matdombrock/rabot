@@ -18,11 +18,17 @@ export interface GuildScanResult {
   cached: boolean;
   reportId?: string;
   error?: string;
+  // Scores (1-10, nullable on error)
+  activityScore: number | null;
+  healthScore: number | null;
+  toxicityScore: number | null;
+  spamScore: number | null;
+  engagementScore: number | null;
 }
 
 export async function generateGuildScan(guild: Guild, force = false): Promise<GuildScanResult> {
   if (!config.openrouter.apiKey) {
-    return { summary: "", messageCount: 0, generated: "", cached: false, error: "OpenRouter API key not configured. Add it to src/config.json" };
+    return { summary: "", messageCount: 0, generated: "", cached: false, error: "OpenRouter API key not configured. Add it to src/config.json", activityScore: null, healthScore: null, toxicityScore: null, spamScore: null, engagementScore: null };
   }
 
   const db = getGuildDb(guild.id);
@@ -30,10 +36,10 @@ export async function generateGuildScan(guild: Guild, force = false): Promise<Gu
   // Check for existing scan if not forced
   if (!force) {
     const existing = db.prepare(`
-      SELECT id, generated, message_count, total_members, ai_scan FROM reports
+      SELECT id, generated, message_count, total_members, ai_scan, guild_activity_score, guild_health_score, guild_toxicity_score, guild_spam_score, guild_engagement_score FROM reports
       WHERE type = 'guild-scan'
       ORDER BY generated DESC LIMIT 1
-    `).get() as { id: string; generated: string; message_count: number; total_members: number; ai_scan: string } | undefined;
+    `).get() as { id: string; generated: string; message_count: number; total_members: number; ai_scan: string; guild_activity_score: number | null; guild_health_score: number | null; guild_toxicity_score: number | null; guild_spam_score: number | null; guild_engagement_score: number | null } | undefined;
 
     if (existing) {
       const newestMsg = db.prepare(`SELECT MAX(created_at) as ts FROM messages`).get() as { ts: number | null } | undefined;
@@ -46,6 +52,11 @@ export async function generateGuildScan(guild: Guild, force = false): Promise<Gu
             generated: existing.generated,
             cached: true,
             reportId: existing.id,
+            activityScore: existing.guild_activity_score,
+            healthScore: existing.guild_health_score,
+            toxicityScore: existing.guild_toxicity_score,
+            spamScore: existing.guild_spam_score,
+            engagementScore: existing.guild_engagement_score,
           };
         }
       }
@@ -92,6 +103,26 @@ export async function generateGuildScan(guild: Guild, force = false): Promise<Gu
         ],
         max_tokens: maxTokens,
         temperature,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "guild_scan",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                analysis: { type: "string", description: "Full markdown-formatted analysis of the server's activity including suspicious users and overall assessment" },
+                activity: { type: "integer", minimum: 1, maximum: 10, description: "Activity score — how active and lively the server is overall" },
+                health:   { type: "integer", minimum: 1, maximum: 10, description: "Health score — how healthy, positive, and well-moderated the server seems" },
+                toxicity: { type: "integer", minimum: 1, maximum: 10, description: "Toxicity score — how toxic, hostile, or rule-breaking the conversation is" },
+                spam:     { type: "integer", minimum: 1, maximum: 10, description: "Spam score — how much spam, advertising, or low-effort content is present" },
+                engagement: { type: "integer", minimum: 1, maximum: 10, description: "Engagement score — how engaged users are (conversations, replies, thoughtful messages)" }
+              },
+              required: ["analysis", "activity", "health", "toxicity", "spam", "engagement"],
+              additionalProperties: false
+            }
+          }
+        }
       }),
     });
 
@@ -101,18 +132,38 @@ export async function generateGuildScan(guild: Guild, force = false): Promise<Gu
     }
 
     const data = await response.json() as { choices: { message: { content: string } }[] };
-    const summary = data.choices?.[0]?.message?.content ?? "(no response)";
+    const rawContent = data.choices?.[0]?.message?.content ?? "{}";
+    const parsed = JSON.parse(rawContent);
+
+    const summary = parsed.analysis || parsed.summary || rawContent;
+    const clamp = (n: unknown) => typeof n === "number" ? Math.min(Math.max(n, 1), 10) : null;
+    const activityScore = clamp(parsed.activity);
+    const healthScore = clamp(parsed.health);
+    const toxicityScore = clamp(parsed.toxicity);
+    const spamScore = clamp(parsed.spam);
+    const engagementScore = clamp(parsed.engagement);
 
     const generated = new Date().toISOString();
 
     // Save to reports table
     const reportId = crypto.randomUUID();
     const totalMsgs = db.prepare(`SELECT COUNT(*) as count FROM messages`).get() as { count: number } | undefined;
-    db.prepare(`INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv, ai_scan, message_count) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      reportId, guild.name, "guild-scan", generated, totalMsgs?.count ?? 0, "", "", summary, messageLines.length
+    db.prepare(`INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv, ai_scan, message_count, guild_activity_score, guild_health_score, guild_toxicity_score, guild_spam_score, guild_engagement_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      reportId, guild.name, "guild-scan", generated, totalMsgs?.count ?? 0, "", "", summary, messageLines.length,
+      activityScore, healthScore, toxicityScore, spamScore, engagementScore
     );
 
-    return { summary, messageCount: totalMsgs?.count ?? messageLines.length, generated, cached: false };
+    return {
+      summary,
+      messageCount: totalMsgs?.count ?? messageLines.length,
+      generated,
+      cached: false,
+      activityScore,
+      healthScore,
+      toxicityScore,
+      spamScore,
+      engagementScore,
+    };
   } catch (err) {
     return {
       summary: "",
@@ -120,6 +171,11 @@ export async function generateGuildScan(guild: Guild, force = false): Promise<Gu
       generated: "",
       cached: false,
       error: err instanceof Error ? err.message : "Unknown error during guild scan",
+      activityScore: null,
+      healthScore: null,
+      toxicityScore: null,
+      spamScore: null,
+      engagementScore: null,
     };
   }
 }

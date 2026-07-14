@@ -244,8 +244,8 @@
               <th class:sort-asc={i === sortCol && sortAsc} class:sort-desc={i === sortCol && !sortAsc} on:click={() => setSort(i)}>{h}</th>
             {/if}
           {/each}
-          <th>ID</th>
           <th>Actions</th>
+          <th>ID</th>
         </tr>
       </thead>
       <tbody>
@@ -256,12 +256,12 @@
                 <td>{#if cell.startsWith('https://cdn.discordapp.com/')}<img src={cell} alt="" class="avatar clickable" on:click={() => showAvatar(cell, row[2])} />{:else}{cell}{/if}</td>
               {/if}
             {/each}
-            <td style="font-family:monospace;font-size:0.75rem">{row[0]}</td>
             <td class="action-cell">
               <button class="btn-sm" class:btn-watched={memberWatch[row[0]]} on:click={() => toggleWatch(row[0])}>Watch</button>
               <button class="btn-sm" on:click={() => analyzeUser(row[0])}>Scan</button>
               <button class="btn-sm" on:click={() => viewMessages(row[0])}>Messages</button>
             </td>
+            <td style="font-family:monospace;font-size:0.75rem">{row[0]}</td>
           </tr>
         {/each}
       </tbody>

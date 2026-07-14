@@ -166,6 +166,12 @@ export function getGuildDb(guildId: string): DbType {
   try { db.exec("ALTER TABLE reports ADD COLUMN ai_score INTEGER DEFAULT NULL"); } catch {}
   try { db.exec("ALTER TABLE reports ADD COLUMN message_count INTEGER DEFAULT 0"); } catch {}
   try { db.exec("ALTER TABLE reports ADD COLUMN channel_id TEXT NOT NULL DEFAULT ''"); } catch {}
+  try { db.exec("ALTER TABLE reports ADD COLUMN channel_name TEXT NOT NULL DEFAULT ''"); } catch {}
+  try { db.exec("ALTER TABLE reports ADD COLUMN guild_activity_score INTEGER DEFAULT NULL"); } catch {}
+  try { db.exec("ALTER TABLE reports ADD COLUMN guild_health_score INTEGER DEFAULT NULL"); } catch {}
+  try { db.exec("ALTER TABLE reports ADD COLUMN guild_toxicity_score INTEGER DEFAULT NULL"); } catch {}
+  try { db.exec("ALTER TABLE reports ADD COLUMN guild_spam_score INTEGER DEFAULT NULL"); } catch {}
+  try { db.exec("ALTER TABLE reports ADD COLUMN guild_engagement_score INTEGER DEFAULT NULL"); } catch {}
   try { db.exec("ALTER TABLE members ADD COLUMN watched INTEGER DEFAULT 0"); } catch {}
   try { db.exec("ALTER TABLE ai_chat_log ADD COLUMN response_message_id TEXT NOT NULL DEFAULT ''"); } catch {}
   try { db.exec("ALTER TABLE ai_chat_log ADD COLUMN ack_message_id TEXT NOT NULL DEFAULT ''"); } catch {}

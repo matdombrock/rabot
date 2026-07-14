@@ -1,5 +1,6 @@
 <script>
-  import { onMount, tick } from 'svelte'
+  import { onMount, tick, afterUpdate } from 'svelte'
+  import Sortable from 'sortablejs'
   import Card from './lib/Card.svelte'
   import AiChat from './lib/AiChat.svelte'
   import BotStatus from './lib/BotStatus.svelte'
@@ -61,9 +62,7 @@
   let paneCollapsed = {};
   let dashboardSettings = {};
 
-  // Drag state
-  let dragIndex = -1;
-  let dragOverIndex = -1;
+  let sortableInstance = null;
   let focusPaneKey = '';
 
   $: visible = (title) => !paneSearch || title.toLowerCase().includes(paneSearch.toLowerCase());
@@ -184,39 +183,25 @@
     }
   }
 
-  // ── Drag and drop ──
+  // ── SortableJS drag and drop (works on both desktop and mobile) ──
 
-  function onDragStart(index) {
-    dragIndex = index;
-  }
-
-  function onDragOver(e, index) {
-    e.preventDefault();
-    dragOverIndex = index;
-  }
-
-  function onDragLeave() {
-    dragOverIndex = -1;
-  }
-
-  function onDrop(index) {
-    if (dragIndex === -1 || dragIndex === index) {
-      dragIndex = -1;
-      dragOverIndex = -1;
-      return;
-    }
-    const newOrder = [...paneOrder];
-    const [moved] = newOrder.splice(dragIndex, 1);
-    newOrder.splice(index, 0, moved);
-    paneOrder = newOrder;
-    saveOrder();
-    dragIndex = -1;
-    dragOverIndex = -1;
-  }
-
-  function onDragEnd() {
-    dragIndex = -1;
-    dragOverIndex = -1;
+  function initSortable() {
+    const el = document.getElementById('pane-container');
+    if (!el) return;
+    if (sortableInstance) sortableInstance.destroy();
+    sortableInstance = new Sortable(el, {
+      animation: 200,
+      handle: '.pane-handle',
+      draggable: '.pane',
+      onEnd: (evt) => {
+        if (evt.oldIndex === evt.newIndex) return;
+        const newOrder = [...paneOrder];
+        const [moved] = newOrder.splice(evt.oldIndex, 1);
+        newOrder.splice(evt.newIndex, 0, moved);
+        paneOrder = newOrder;
+        saveOrder();
+      },
+    });
   }
 
   onMount(async () => {
@@ -241,6 +226,11 @@
   $: iconUrl = selectedGuild?.icon ? `https://cdn.discordapp.com/icons/${selectedGuild.id}/${selectedGuild.icon}.png` : null;
   $: memberCount = selectedGuild?.memberCount ?? null;
   $: onlineCount = selectedGuild?.onlineCount ?? null;
+
+  // Re-init Sortable after the pane list is rendered/updated
+  $: if (orderedPanes.length > 0) {
+    tick().then(() => initSortable());
+  }
 </script>
 
 <header class="sticky-header">
@@ -292,17 +282,12 @@
 </Card>
 {/if}
 
+<div id="pane-container">
 {#each orderedPanes as pane, i (pane.key)}
   <div
     class="pane"
     class:pane-hidden={!visible(pane.title)}
-    class:drag-over={dragOverIndex === i && dragIndex !== i}
-    draggable={true}
-    on:dragstart={() => onDragStart(i)}
-    on:dragover={(e) => onDragOver(e, i)}
-    on:dragleave={onDragLeave}
-    on:drop={() => onDrop(i)}
-    on:dragend={onDragEnd}
+    data-index={i}
   >
     <div class="pane-handle" title="Drag to reorder">⠿</div>
     <div class="pane-content">
@@ -373,6 +358,7 @@
     </div>
   </div>
 {/each}
+</div>
 
 <AvatarPopup show={avatarPopup.show} url={avatarPopup.url} name={avatarPopup.name} />
 
@@ -508,17 +494,13 @@
     }
   }
 
+  #pane-container { min-height: 1px; }
   .pane {
     display: flex;
     align-items: stretch;
     gap: 0;
     margin-bottom: 0.5rem;
     transition: opacity 0.15s;
-  }
-  .pane.drag-over .pane-content {
-    outline: 2px dashed var(--primary);
-    outline-offset: -2px;
-    border-radius: 8px;
   }
   .pane-handle {
     display: flex;
@@ -532,10 +514,12 @@
     user-select: none;
     opacity: 0.4;
     transition: opacity 0.15s;
+    touch-action: none;
   }
+  .pane.sortable-ghost { opacity: 0.3; }
+  .pane.sortable-ghost .pane-content { outline: 2px dashed var(--primary); outline-offset: -2px; border-radius: 8px; }
   .pane:hover .pane-handle,
   .pane-handle:active { opacity: 0.8; }
-  .pane-handle:active { cursor: grabbing; }
   .pane-content {
     flex: 1;
     min-width: 0;

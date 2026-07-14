@@ -132,8 +132,8 @@ export async function getChannelSummary(
     const reportId = crypto.randomUUID();
     const generated = new Date().toISOString();
     const totalInChannel = db.prepare(`SELECT COUNT(*) as count FROM messages WHERE channel_id = ?`).get(channelId) as { count: number } | undefined;
-    db.prepare(`INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv, ai_scan, message_count, channel_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      reportId, guild.name, "channel-summary", generated, totalInChannel?.count ?? 0, "", "", summary, messageLines.length, channelId
+    db.prepare(`INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv, ai_scan, message_count, channel_id, channel_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      reportId, guild.name, "channel-summary", generated, totalInChannel?.count ?? 0, "", "", summary, messageLines.length, channelId, channelName
     );
 
     return {

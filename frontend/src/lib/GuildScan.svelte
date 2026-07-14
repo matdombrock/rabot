@@ -11,6 +11,35 @@
   let cached = false;
   let historyCollapsed = true;
 
+  // Score display config
+  const scoreDefs = [
+    { key: 'activityScore', label: 'Activity', low: false, mid: false, high: true, nice: false },
+    { key: 'healthScore', label: 'Health', low: false, mid: false, high: true, nice: true },
+    { key: 'toxicityScore', label: 'Toxicity', low: true, mid: false, high: true, nice: false },
+    { key: 'spamScore', label: 'Spam', low: true, mid: false, high: true, nice: false },
+    { key: 'engagementScore', label: 'Engagement', low: false, mid: false, high: true, nice: true },
+  ];
+
+  $: scores = result ? scoreDefs.map(d => ({
+    ...d,
+    value: result[d.key] ?? null,
+  })) : [];
+
+  function scoreClass(def, val) {
+    if (val === null) return '';
+    if (def.nice) {
+      if (val <= 3) return 'score-low';
+      if (val <= 6) return 'score-mid';
+      return 'score-high';
+    }
+    if (def.low) {
+      if (val <= 3) return 'score-low';
+      if (val <= 6) return 'score-mid';
+      return 'score-high';
+    }
+    return '';
+  }
+
   async function loadHistory() {
     if (!guildId) return;
     try {
@@ -51,7 +80,16 @@
       const r = await fetch(`/api/guild/${guildId}/history/${record.id}`);
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
-      result = { summary: data.ai_scan, messageCount: data.message_count, generated: data.generated };
+      result = {
+        summary: data.ai_scan,
+        messageCount: data.message_count,
+        generated: data.generated,
+        activityScore: data.guild_activity_score,
+        healthScore: data.guild_health_score,
+        toxicityScore: data.guild_toxicity_score,
+        spamScore: data.guild_spam_score,
+        engagementScore: data.guild_engagement_score,
+      };
       cached = true;
       summaryHtml = renderMarkdown(data.ai_scan);
     } catch (err) {
@@ -128,6 +166,16 @@
         <span class="result-info">{result.messageCount} messages — {new Date(result.generated).toLocaleString()}</span>
       </div>
       <button class="btn-sm" on:click={copySummary}><i class="fa-solid fa-copy"></i> Copy</button>
+    </div>
+    <div class="guild-scores">
+      {#each scores as s}
+        <div class="guild-score">
+          <span class="guild-score-label">{s.label}</span>
+          <span class="guild-score-value {scoreClass(s, s.value)}">
+            {s.value !== null ? `${s.value}/10` : 'N/A'}
+          </span>
+        </div>
+      {/each}
     </div>
     <div class="result-body">
       {@html summaryHtml}
@@ -259,6 +307,37 @@
   .responsive-table tr:hover td { background: var(--surface-alt); }
   .nowrap { white-space: nowrap; }
   .action-cell { white-space: nowrap; }
+  .guild-scores {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+  .guild-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.15rem;
+    min-width: 64px;
+    flex: 1;
+    background: var(--surface);
+    border-radius: 6px;
+    padding: 0.4rem 0.5rem;
+  }
+  .guild-score-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 600;
+  }
+  .guild-score-value {
+    font-size: 1rem;
+    font-weight: 700;
+  }
+  .guild-score-value.score-low { color: #23a55a; }
+  .guild-score-value.score-mid { color: #f0b232; }
+  .guild-score-value.score-high { color: #f23f42; }
   .result-body {
     background: var(--background);
     border: 1px solid var(--surface-alt);
