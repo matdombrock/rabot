@@ -1,29 +1,30 @@
 <script>
-  import { onMount } from 'svelte';
+  export let guildId = '';
 
   let checksums = [];
   let action = 'ban';
   let newChecksum = '';
   let newLabel = '';
-
   let logs = [];
   let logStatus = '';
 
   async function load() {
-    const r = await fetch('/api/checksums');
+    if (!guildId) return;
+    const r = await fetch(`/api/guild/${guildId}/checksums`);
     const data = await r.json();
     checksums = data.checksums;
     action = data.action;
   }
 
   async function loadLogs() {
-    const r = await fetch('/api/modlogs');
+    if (!guildId) return;
+    const r = await fetch(`/api/guild/${guildId}/modlogs`);
     logs = await r.json();
     logStatus = logs.length ? `${logs.length} entries` : '';
   }
 
   async function saveAction() {
-    await fetch('/api/checksums/action', {
+    await fetch(`/api/guild/${guildId}/checksums/action`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action }),
@@ -32,7 +33,7 @@
 
   async function addChecksum() {
     if (!newChecksum.trim()) return;
-    await fetch('/api/checksums', {
+    await fetch(`/api/guild/${guildId}/checksums`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ checksum: newChecksum.trim(), label: newLabel.trim() }),
@@ -43,20 +44,17 @@
   }
 
   async function deleteChecksum(c) {
-    await fetch(`/api/checksums/${c}`, { method: 'DELETE' });
+    await fetch(`/api/guild/${guildId}/checksums/${c}`, { method: 'DELETE' });
     load();
   }
 
   async function clearLogs() {
     if (!confirm('Clear all mod log entries?')) return;
-    await fetch('/api/modlogs', { method: 'DELETE' });
+    await fetch(`/api/guild/${guildId}/modlogs`, { method: 'DELETE' });
     loadLogs();
   }
 
-  onMount(() => {
-    load();
-    loadLogs();
-  });
+  $: if (guildId) { load(); loadLogs(); }
 </script>
 
 <div class="row">

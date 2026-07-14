@@ -1,8 +1,9 @@
 <script>
-  import { onMount } from 'svelte';
+  export let guildId = '';
+  export let endpoint = '';
+  export let showSearch = false;
+  export let autoRun = false;
 
-  let guilds = [];
-  let guildId = '';
   let loading = false;
   let status = '';
   let csv = '';
@@ -10,22 +11,8 @@
   let searchTerm = '';
   let sortCol = -1;
   let sortAsc = true;
-
-  export let endpoint = '';
-  export let autoRun = false;
-  export let showSearch = false;
-
   let headers = [];
   let rows = [];
-
-  onMount(async () => {
-    const r = await fetch('/api/guilds');
-    guilds = await r.json();
-    if (autoRun && guilds.length) {
-      guildId = guilds[0].id;
-      run();
-    }
-  });
 
   function fuzzyMatch(term, text) {
     if (!term) return true;
@@ -98,7 +85,7 @@
     status = 'Generating report...';
     csv = '';
     try {
-      const r = await fetch(`/api/reports/${endpoint}/${guildId}`);
+      const r = await fetch(`/api/guild/${guildId}/reports/${endpoint}`);
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       status = `${data.guildName} — ${data.totalMembers} members — ${data.generated}`;
@@ -124,15 +111,10 @@
   }
 
   $: if (csv) render();
+  $: if (guildId && autoRun) run();
 </script>
 
 <div class="row">
-  <select bind:value={guildId}>
-    <option value="">Select guild...</option>
-    {#each guilds as g}
-      <option value={g.id}>{g.name}</option>
-    {/each}
-  </select>
   <button on:click={run} disabled={loading || !guildId}>Run</button>
   <button on:click={downloadCsv} disabled={!csv}>Download CSV</button>
 </div>

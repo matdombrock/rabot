@@ -1,6 +1,4 @@
 import { Collection, type Guild, type TextChannel } from "discord.js";
-import crypto from "node:crypto";
-import db from "../db.js";
 
 function csvEscape(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
@@ -85,24 +83,10 @@ export async function generateUserReport(guild: Guild): Promise<UserReportResult
     );
   }
 
-  const result = {
+  return {
     guildName: guild.name,
     generated: new Date().toISOString(),
     totalMembers: members.size,
     csv: rows.join("\n"),
   };
-
-  await db.update(({ reports }) => {
-    reports.push({
-      id: crypto.randomUUID(),
-      guildId: guild.id,
-      guildName: guild.name,
-      type: "full",
-      generated: result.generated,
-      totalMembers: result.totalMembers,
-      csv: result.csv,
-    });
-  });
-
-  return result;
 }

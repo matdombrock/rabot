@@ -1,17 +1,8 @@
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { config } from "./config.js";
 import { createWebServer } from "./web/server.js";
-import db from "./db.js";
 
 async function main() {
-  await db.read();
-  db.data.saylogs ??= [];
-  db.data.modlogs ??= [];
-  db.data.settings ??= [];
-  db.data.reports ??= [];
-  db.data.checksums ??= [];
-  db.data.action ??= "ban";
-
   const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent] });
 
   const eventMods = await Promise.all([

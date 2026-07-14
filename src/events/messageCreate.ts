@@ -4,7 +4,7 @@ import type { Event } from "../types.js";
 import type { ModLog } from "../db.js";
 import { computeImageChecksum } from "../checksum/compute.js";
 import { deleteUserMessages } from "../helpers/deleteMessages.js";
-import db from "../db.js";
+import { getGuildDb, readGuildDb } from "../db.js";
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp", ".avif"]);
 
@@ -15,8 +15,10 @@ function isImageAttachment(attachment: { contentType: string | null; url: string
 }
 
 async function handleMatch(message: Message, matchedEntry: { checksum: string; label: string }) {
-  await db.read();
-  const action = db.data.action;
+  const guildId = message.guildId!;
+  const db = getGuildDb(guildId);
+  await readGuildDb(guildId);
+  const action = db.imageCheck.data.action;
   const member = message.member;
   if (!member) return;
 
@@ -39,14 +41,13 @@ async function handleMatch(message: Message, matchedEntry: { checksum: string; l
     label: matchedEntry.label ?? "",
     channelId: message.channelId,
     channelName: message.channel.isDMBased() ? "DM" : (message.channel as any).name ?? "unknown",
-    guildId: message.guildId ?? "",
+    guildId,
     guildName: message.guild?.name ?? "",
     messagesDeleted: count,
   };
 
-  await db.update(({ modlogs }) => {
-    modlogs.push(log);
-  });
+  db.imageCheck.data.modlogs.push(log);
+  await db.imageCheck.write();
 
   console.log(`${action}ed ${log.userTag} (${log.userId}) — matched ${log.checksum.slice(0, 12)}... — deleted ${count} messages`);
 }
@@ -59,14 +60,17 @@ const messageCreate: Event = {
     const attachments = message.attachments.filter(isImageAttachment);
     if (attachments.size === 0) return;
 
-    await db.read();
-    const watched = db.data.checksums;
+    const guildId = message.guildId!;
+    const db = getGuildDb(guildId);
+    await readGuildDb(guildId);
+
+    const watched = db.imageCheck.data.checksums;
     if (watched.length === 0) return;
 
     for (const [, attachment] of attachments) {
       try {
         const checksum = await computeImageChecksum(attachment.url);
-        const entry = watched.find((e) => e.checksum === checksum);
+        const entry = watched.find((e: { checksum: string }) => e.checksum === checksum);
         if (entry) {
           await handleMatch(message, entry);
           return;

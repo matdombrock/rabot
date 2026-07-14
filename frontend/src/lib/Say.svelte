@@ -1,9 +1,7 @@
 <script>
-  import { onMount } from 'svelte';
+  export let guildId = '';
 
-  let guilds = [];
   let channels = [];
-  let guildId = '';
   let channelId = '';
   let text = '';
   let status = '';
@@ -11,26 +9,18 @@
   let logs = [];
   let logStatus = '';
 
-  async function loadGuilds() {
-    try {
-      const r = await fetch('/api/guilds');
-      guilds = await r.json();
-    } catch (err) {
-      status = 'Error: ' + err.message;
-    }
-  }
-
   async function loadChannels() {
     channels = [];
     channelId = '';
     if (!guildId) return;
-    const r = await fetch(`/api/channels/${guildId}`);
+    const r = await fetch(`/api/guild/${guildId}/channels`);
     channels = await r.json();
   }
 
   async function loadLogs() {
+    if (!guildId) return;
     try {
-      const r = await fetch('/api/saylogs');
+      const r = await fetch(`/api/guild/${guildId}/saylogs`);
       if (!r.ok) throw new Error(await r.text());
       logs = await r.json();
       logStatus = logs.length ? `${logs.length} message(s)` : '';
@@ -40,14 +30,14 @@
   }
 
   async function send() {
-    if (!guildId || !channelId || !text.trim()) return;
+    if (!channelId || !text.trim()) return;
     sending = true;
     status = 'Sending...';
     try {
-      const r = await fetch('/api/send-message', {
+      const r = await fetch(`/api/guild/${guildId}/send-message`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ guildId, channelId, content: text }),
+        body: JSON.stringify({ channelId, content: text }),
       });
       if (!r.ok) throw new Error((await r.json()).error);
       status = 'Sent!';
@@ -62,33 +52,17 @@
 
   async function del(id) {
     if (!confirm('Delete this message from the server?')) return;
-    await fetch(`/api/saylogs/${id}`, { method: 'DELETE' });
+    await fetch(`/api/guild/${guildId}/saylogs/${id}`, { method: 'DELETE' });
     await loadLogs();
   }
 
-  function onGuildChange() {
-    channels = [];
-    channelId = '';
-    if (guildId) loadChannels();
-  }
-
-  $: canSend = guildId && channelId && text.trim();
-
-  onMount(() => {
-    loadGuilds();
-    loadLogs();
-  });
+  $: canSend = channelId && text.trim();
+  $: if (guildId) { loadChannels(); loadLogs(); }
 </script>
 
 <div class="row">
-  <select bind:value={guildId} on:change={onGuildChange}>
-    <option value="">Select guild...</option>
-    {#each guilds as g}
-      <option value={g.id}>{g.name}</option>
-    {/each}
-  </select>
   <select bind:value={channelId} disabled={!guildId}>
-    <option value="">Select channel...</option>
+    <option value="">{guildId ? 'Select channel...' : 'Enter guild ID first'}</option>
     {#each channels as ch}
       <option value={ch.id}>#{ch.name}</option>
     {/each}
@@ -105,12 +79,11 @@
     <p style="color:var(--text-muted)">No messages sent yet.</p>
   {:else}
     <table>
-      <thead><tr><th>Time</th><th>Guild</th><th>Channel</th><th>Content</th><th></th></tr></thead>
+      <thead><tr><th>Time</th><th>Channel</th><th>Content</th><th></th></tr></thead>
       <tbody>
         {#each logs as e}
           <tr>
             <td style="white-space:nowrap">{new Date(e.timestamp).toLocaleString()}</td>
-            <td>{e.guildName}</td>
             <td>#{e.channelName}</td>
             <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{e.content}</td>
             <td><button class="btn-sm btn-danger" on:click={() => del(e.id)}>Delete</button></td>

@@ -68,13 +68,15 @@ The panel is a Svelte app built with Vite. Run `npm run build:frontend` after an
 
 ## Database
 
-Data is stored in `db.json` (in the project root) using LowDB — a JSON file-based database. It persists:
+Data is stored in three separate LowDB files, split by feature so writing to one doesn't serialize the others:
 
-- Guild settings
-- Report history
-- Checksum watchlist + action preference
-- Moderation action logs
-- Say message history
+| File | Contents |
+|---|---|
+| `main.db` | Guild settings, say message history |
+| `reports.db` | Full report records (with CSVs) |
+| `imagecheck.db` | Checksum watchlist, ban/kick action, moderation logs |
+
+Each is a named export from `src/db.ts` — always use `import { mainDb } from "../db.js"` (never default imports).
 
 ## Project Structure
 

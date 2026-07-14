@@ -1,12 +1,13 @@
 <script>
-  import { onMount } from 'svelte';
+  export let guildId = '';
 
   let reports = [];
   let status = '';
 
   async function load() {
+    if (!guildId) return;
     try {
-      const r = await fetch('/api/history');
+      const r = await fetch(`/api/guild/${guildId}/history`);
       reports = await r.json();
       status = reports.length ? `${reports.length} report(s) saved` : '';
     } catch (err) {
@@ -15,7 +16,7 @@
   }
 
   async function download(id, guildName, type) {
-    const r = await fetch(`/api/history/${id}`);
+    const r = await fetch(`/api/guild/${guildId}/history/${id}`);
     const data = await r.json();
     const blob = new Blob([data.csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -29,11 +30,11 @@
 
   async function del(id) {
     if (!confirm('Delete this report?')) return;
-    await fetch(`/api/history/${id}`, { method: 'DELETE' });
+    await fetch(`/api/guild/${guildId}/history/${id}`, { method: 'DELETE' });
     load();
   }
 
-  onMount(load);
+  $: if (guildId) load();
 </script>
 
 <div class="row">
@@ -45,11 +46,10 @@
     <p style="color:var(--text-muted)">No saved reports.</p>
   {:else}
     <table>
-      <thead><tr><th>Guild</th><th>Type</th><th>Generated</th><th>Actions</th></tr></thead>
+      <thead><tr><th>Type</th><th>Generated</th><th>Actions</th></tr></thead>
       <tbody>
         {#each reports as r}
           <tr>
-            <td>{r.guildName}</td>
             <td>{r.type}</td>
             <td>{new Date(r.generated).toLocaleString()}</td>
             <td>

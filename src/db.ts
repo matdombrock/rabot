@@ -1,12 +1,9 @@
 import { Low } from "lowdb";
 import { JSONFile } from "lowdb/node";
+import { mkdirSync, existsSync } from "node:fs";
+import { resolve, dirname } from "node:path";
 
 export type Action = "ban" | "kick";
-
-export interface GuildSettings {
-  guildId: string;
-  guildName: string;
-}
 
 export interface ReportRecord {
   id: string;
@@ -45,18 +42,61 @@ export interface SayLog {
   messageId: string;
 }
 
-interface Data {
-  settings: GuildSettings[];
-  reports: ReportRecord[];
-  modlogs: ModLog[];
+// ── Data shapes ──
+
+export interface MainData {
+  settings: { guildId: string; guildName: string }[];
+}
+export interface SayData {
   saylogs: SayLog[];
+}
+export interface ReportsData {
+  reports: ReportRecord[];
+}
+export interface ImageCheckData {
   checksums: { checksum: string; label: string }[];
   action: Action;
+  modlogs: ModLog[];
 }
 
-const defaultData: Data = { settings: [], reports: [], modlogs: [], saylogs: [], checksums: [], action: "ban" };
+export interface GuildDbs {
+  main: Low<MainData>;
+  say: Low<SayData>;
+  reports: Low<ReportsData>;
+  imageCheck: Low<ImageCheckData>;
+}
 
-const adapter = new JSONFile<Data>("db.json");
-const db = new Low<Data>(adapter, defaultData);
+const cache = new Map<string, GuildDbs>();
 
-export default db;
+function ensureDir(filePath: string) {
+  const dir = dirname(resolve(filePath));
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+}
+
+const mainDefault: MainData = { settings: [] };
+const sayDefault: SayData = { saylogs: [] };
+const reportsDefault: ReportsData = { reports: [] };
+const imageCheckDefault: ImageCheckData = { checksums: [], action: "ban", modlogs: [] };
+
+export function getGuildDb(guildId: string): GuildDbs {
+  let dbs = cache.get(guildId);
+  if (dbs) return dbs;
+
+  const prefix = `db/${guildId}/`;
+  ensureDir(prefix + "main.json");
+
+  dbs = {
+    main: new Low(new JSONFile<MainData>(prefix + "main.json"), mainDefault),
+    say: new Low(new JSONFile<SayData>(prefix + "say.json"), sayDefault),
+    reports: new Low(new JSONFile<ReportsData>(prefix + "reports.json"), reportsDefault),
+    imageCheck: new Low(new JSONFile<ImageCheckData>(prefix + "imagecheck.json"), imageCheckDefault),
+  };
+
+  cache.set(guildId, dbs);
+  return dbs;
+}
+
+export async function readGuildDb(guildId: string) {
+  const dbs = getGuildDb(guildId);
+  await Promise.all([dbs.main.read(), dbs.say.read(), dbs.reports.read(), dbs.imageCheck.read()]);
+}

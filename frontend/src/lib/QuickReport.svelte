@@ -1,6 +1,6 @@
 <script>
-  import { onMount } from 'svelte';
   import ReportPanel from './ReportPanel.svelte';
+  export let guildId = '';
 </script>
 
-<ReportPanel prefix="quick" endpoint="quick-report" autoRun={true} showSearch={true} />
+<ReportPanel {guildId} endpoint="quick-report" showSearch={true} autoRun={true} />
