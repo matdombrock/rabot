@@ -425,13 +425,58 @@ export function createWebServer(client: Client) {
 
   // ── AI scan ──
 
+  // ── AI scan (streaming SSE) ──
+
   app.get("/api/guild/:guildId/user-ai-scan/:userId", async (req, res) => {
+    const guild = client.guilds.cache.get(req.params.guildId);
+    if (!guild) { res.status(404).json({ error: "Guild not found" }); return; }
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    let fullAnalysis = "";
+    let finalScore = null;
+    let username = "";
+
+    try {
+      const { streamAiScan, saveAiScanResult } = await import("../reports/ai-scan.js");
+
+      await streamAiScan(guild, req.params.userId, (chunk) => {
+        switch (chunk.type) {
+          case "text":
+            fullAnalysis += chunk.text;
+            // Send accumulated text as SSE
+            res.write(`data: ${JSON.stringify({ type: "text", text: fullAnalysis })}\n\n`);
+            break;
+          case "done":
+            // No more chunks — save to DB
+            saveAiScanResult(req.params.guildId, username, fullAnalysis, finalScore);
+            res.write(`data: ${JSON.stringify({ type: "done", analysis: fullAnalysis, riskScore: finalScore })}\n\n`);
+            res.end();
+            break;
+          case "error":
+            res.write(`data: ${JSON.stringify({ type: "error", error: chunk.error })}\n\n`);
+            res.end();
+            break;
+        }
+      });
+    } catch (err) {
+      console.error("AI scan failed:", err);
+      res.write(`data: ${JSON.stringify({ type: "error", error: "Failed to run AI scan" })}\n\n`);
+      res.end();
+    }
+  });
+
+  // ── Non-streaming AI scan (for history viewing) ──
+
+  app.get("/api/guild/:guildId/user-ai-scan/:userId/sync", async (req, res) => {
     const guild = client.guilds.cache.get(req.params.guildId);
     if (!guild) { res.status(404).json({ error: "Guild not found" }); return; }
     try {
       const { generateAiScan } = await import("../reports/ai-scan.js");
       const result = await generateAiScan(guild, req.params.userId);
-      // Save to reports database
       const db = getGuildDb(req.params.guildId);
       db.prepare("INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv, ai_scan, risk_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
         crypto.randomUUID(), guild.name, "ai-scan", new Date().toISOString(), 0, result.username, "", result.analysis, result.riskScore

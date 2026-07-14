@@ -159,14 +159,43 @@
     if (!analysis) return;
     aiScanLoading = true;
     aiScanError = '';
-    aiScanResult = null;
+    aiScanResult = { analysis: '', riskScore: null };
+    aiScanHtml = '';
+
+    let accumulated = '';
+
     try {
       const r = await fetch(`/api/guild/${guildId}/user-ai-scan/${analysis.userId}`);
       if (!r.ok) throw new Error(await r.text());
-      const data = await r.json();
-      if (data.error) throw new Error(data.error);
-      aiScanResult = data;
-      aiScanHtml = renderMarkdown(data.analysis);
+
+      const reader = r.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const data = JSON.parse(line.slice(6));
+
+          if (data.type === 'text') {
+            accumulated = data.text;
+            aiScanHtml = renderMarkdown(accumulated);
+            aiScanHtml = aiScanHtml; // trigger reactivity
+          } else if (data.type === 'done') {
+            aiScanResult = { analysis: data.analysis || accumulated, riskScore: data.riskScore };
+            aiScanHtml = renderMarkdown(data.analysis || accumulated);
+          } else if (data.type === 'error') {
+            throw new Error(data.error);
+          }
+        }
+      }
     } catch (err) {
       aiScanError = err.message;
     } finally {
