@@ -233,6 +233,7 @@ export function createWebServer(client: Client) {
   app.get("/api/guild/:guildId/analytics", async (req, res) => {
     try {
       const db = getGuildDb(req.params.guildId);
+      const guild = client.guilds.cache.get(req.params.guildId);
 
       // Date range filter
       const rangeDays = Math.min(parseInt(req.query.range as string) || 90, 1095);
@@ -294,6 +295,41 @@ export function createWebServer(client: Client) {
       const newUsersPeriod = db.prepare(`SELECT COUNT(*) as count FROM members WHERE guild_join_date IS NOT NULL AND guild_join_date > ?`).get(rangeDate) as { count: number };
       const messagesPeriod = db.prepare(`SELECT COUNT(*) as count FROM messages WHERE created_at > ?`).get(Date.now() - rangeMs) as { count: number };
 
+      // Messages per channel (for pie chart, range-filtered)
+      const rawChannelCounts = db.prepare(`
+        SELECT m.channel_id, COUNT(*) as count
+        FROM messages m
+        WHERE m.created_at > ?
+        GROUP BY m.channel_id
+        ORDER BY count DESC
+      `).all(Date.now() - rangeMs) as { channel_id: string; count: number }[];
+
+      // Resolve channel names from the guild
+      const messagesPerChannel = rawChannelCounts.map(c => ({
+        channelId: c.channel_id,
+        channelName: guild?.channels.cache.get(c.channel_id)?.name ?? c.channel_id.slice(0, 8),
+        count: c.count,
+      }));
+
+      // Messages per day of week (always last 7 days worth of data, averaged)
+      const weekStart = new Date();
+      weekStart.setDate(weekStart.getDate() - 84); // 12 weeks to get decent averages
+      const messagesByDayOfWeek = db.prepare(`
+        SELECT CAST(strftime('%w', datetime(created_at / 1000, 'unixepoch')) AS INTEGER) as dayNum, COUNT(*) as count
+        FROM messages
+        WHERE created_at > ?
+        GROUP BY dayNum
+        ORDER BY dayNum
+      `).all(weekStart.getTime()) as { dayNum: number; count: number }[];
+
+      // Calculate weekly average per day of week
+      const weeks = Math.max(1, Math.floor(84 / 7));
+      const dowLabels = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const messagesByDow = new Array(7).fill(0);
+      for (const row of messagesByDayOfWeek) {
+        messagesByDow[row.dayNum] = Math.round(row.count / weeks);
+      }
+
       res.json({
         totalUsers: totalUsers.count,
         totalMessages: totalMessages.count,
@@ -304,6 +340,41 @@ export function createWebServer(client: Client) {
         periodMessages: messagesPeriod.count,
         messagesByDay,
         newUsersByDay,
+        messagesPerChannel,
+        messagesByDow: { labels: dowLabels, data: messagesByDow },
+
+        // Top posters
+        topPosters: db.prepare(`
+          SELECT COALESCE(u.username, m.author_id) as username, COUNT(*) as count
+          FROM messages m
+          LEFT JOIN members u ON m.author_id = u.id
+          WHERE m.created_at > ?
+          GROUP BY m.author_id
+          ORDER BY count DESC
+          LIMIT 10
+        `).all(Date.now() - rangeMs) as { username: string; count: number }[],
+
+        // Messages by hour (24h)
+        messagesByHour: db.prepare(`
+          SELECT CAST(strftime('%H', datetime(created_at / 1000, 'unixepoch')) AS INTEGER) as hour, COUNT(*) as count
+          FROM messages
+          WHERE created_at > ?
+          GROUP BY hour
+          ORDER BY hour
+        `).all(Date.now() - rangeMs) as { hour: number; count: number }[],
+
+        // Deleted vs active
+        deletedCount: (db.prepare("SELECT COUNT(*) as count FROM messages WHERE deleted = 1").get() as { count: number }).count,
+
+        // Role distribution
+        roleDistribution: db.prepare(`
+          SELECT top_role, COUNT(*) as count
+          FROM members
+          WHERE top_role IS NOT NULL
+          GROUP BY top_role
+          ORDER BY count DESC
+          LIMIT 10
+        `).all() as { top_role: string; count: number }[],
       });
     } catch (err) {
       console.error("Analytics fetch failed:", err);

@@ -13,7 +13,6 @@
 
   // Controls
   let rangeDays = 90;
-  let interval = 'day';
 
   const rangeOptions = [
     { value: 7, label: '7 days' },
@@ -21,12 +20,6 @@
     { value: 90, label: '90 days' },
     { value: 365, label: '1 year' },
     { value: 730, label: '2 years' },
-  ];
-
-  const intervalOptions = [
-    { value: 'day', label: 'Daily' },
-    { value: 'week', label: 'Weekly' },
-    { value: 'month', label: 'Monthly' },
   ];
 
   // Reload when guild or controls change
@@ -48,7 +41,7 @@
     data = null;
     destroyCharts();
     try {
-      const r = await fetch(`/api/guild/${guildId}/analytics?range=${rangeDays}&interval=${interval}`);
+      const r = await fetch(`/api/guild/${guildId}/analytics?range=${rangeDays}`);
       if (!r.ok) throw new Error(await r.text());
       data = await r.json();
     } catch (err) {
@@ -59,7 +52,7 @@
   }
 
   // Reload when controls change
-  $: if (guildId && (rangeDays || interval)) load();
+  $: if (guildId && rangeDays) load();
 
   function renderCharts() {
     destroyCharts();
@@ -68,9 +61,15 @@
 
     const msgCanvas = document.getElementById('chart-messages');
     const usersCanvas = document.getElementById('chart-users');
+    const channelCanvas = document.getElementById('chart-channels');
+    const dowCanvas = document.getElementById('chart-dow');
+    const topPostersCanvas = document.getElementById('chart-top-posters');
+    const hourCanvas = document.getElementById('chart-hour');
+    const deletedCanvas = document.getElementById('chart-deleted');
+    const rolesCanvas = document.getElementById('chart-roles');
 
     // If canvases are not in DOM yet, retry
-    if (!msgCanvas || !usersCanvas) {
+    if (!msgCanvas || !usersCanvas || !channelCanvas || !dowCanvas || !topPostersCanvas || !hourCanvas || !deletedCanvas || !rolesCanvas) {
       setTimeout(() => renderCharts(), 100);
       return;
     }
@@ -182,6 +181,258 @@
       });
       chartInstances.push(ch);
     }
+
+    // Messages per channel (pie chart)
+    if (data.messagesPerChannel && data.messagesPerChannel.length > 0) {
+      const colors = ['#B450FF', '#8C78B4', '#6B4F9E', '#DCC8FF', '#5B2B8C', '#A070D0', '#382C4C', '#7A5FA8', '#E0D0F0', '#4A3A6A'];
+      // Limit to top 10, group rest as "Other"
+      let labels = [];
+      let counts = [];
+      let otherCount = 0;
+      for (let i = 0; i < data.messagesPerChannel.length; i++) {
+        if (i < 9) {
+          labels.push(`#${data.messagesPerChannel[i].channelName}`);
+          counts.push(data.messagesPerChannel[i].count);
+        } else {
+          otherCount += data.messagesPerChannel[i].count;
+        }
+      }
+      if (otherCount > 0) {
+        labels.push('Other');
+        counts.push(otherCount);
+      }
+
+      const ch = new Chart(channelCanvas, {
+        type: 'doughnut',
+        data: {
+          labels,
+          datasets: [{
+            data: counts,
+            backgroundColor: colors.slice(0, labels.length),
+            borderColor: '#141020',
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: {
+                color: '#8C78B4',
+                font: { size: 10 },
+                boxWidth: 12,
+                padding: 8,
+              }
+            },
+            tooltip: {
+              backgroundColor: '#261E36',
+              titleColor: '#DCC8FF',
+              bodyColor: '#DCC8FF',
+              borderColor: '#382C4C',
+              borderWidth: 1,
+              callbacks: {
+                label: function(ctx) {
+                  const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                  const pct = Math.round(ctx.parsed * 100 / total);
+                  return `${ctx.label}: ${ctx.parsed.toLocaleString()} (${pct}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+      chartInstances.push(ch);
+    }
+
+    // Messages per day of week (bar chart)
+    if (data.messagesByDow && data.messagesByDow.data) {
+      const ch = new Chart(dowCanvas, {
+        type: 'bar',
+        data: {
+          labels: data.messagesByDow.labels,
+          datasets: [{
+            label: 'Avg Messages',
+            data: data.messagesByDow.data,
+            backgroundColor: ['#B450FF44', '#B450FF44', '#B450FF44', '#B450FF44', '#B450FF44', '#B450FF44', '#B450FF'],
+            borderColor: '#B450FF',
+            borderWidth: 1,
+            borderRadius: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#261E36',
+              titleColor: '#DCC8FF',
+              bodyColor: '#DCC8FF',
+              borderColor: '#382C4C',
+              borderWidth: 1,
+            }
+          },
+          scales: {
+            x: {
+              ticks: { color: '#8C78B4' },
+              grid: { color: '#382C4C44' }
+            },
+            y: {
+              ticks: { color: '#8C78B4', precision: 0 },
+              grid: { color: '#382C4C44' },
+              beginAtZero: true,
+            }
+          }
+        }
+      });
+      chartInstances.push(ch);
+    }
+
+    // Top posters
+    if (data.topPosters && data.topPosters.length > 0) {
+      const ch = new Chart(topPostersCanvas, {
+        type: 'bar',
+        data: {
+          labels: data.topPosters.map(p => p.username || 'unknown'),
+          datasets: [{
+            label: 'Messages',
+            data: data.topPosters.map(p => p.count),
+            backgroundColor: '#B450FF44',
+            borderColor: '#B450FF',
+            borderWidth: 1,
+            borderRadius: 2,
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#261E36', titleColor: '#DCC8FF', bodyColor: '#DCC8FF', borderColor: '#382C4C', borderWidth: 1 }
+          },
+          scales: {
+            x: { ticks: { color: '#8C78B4', precision: 0 }, grid: { color: '#382C4C44' }, beginAtZero: true },
+            y: { ticks: { color: '#8C78B4' }, grid: { color: '#382C4C44' } }
+          }
+        }
+      });
+      chartInstances.push(ch);
+    }
+
+    // Messages by hour
+    if (data.messagesByHour && data.messagesByHour.length > 0) {
+      const labels = [];
+      const counts = [];
+      for (let h = 0; h < 24; h++) {
+        labels.push(`${h}:00`);
+        const found = data.messagesByHour.find(d => d.hour === h);
+        counts.push(found ? found.count : 0);
+      }
+      const ch = new Chart(hourCanvas, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Messages',
+            data: counts,
+            backgroundColor: '#8C78B444',
+            borderColor: '#8C78B4',
+            borderWidth: 1,
+            borderRadius: 0,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { backgroundColor: '#261E36', titleColor: '#DCC8FF', bodyColor: '#DCC8FF', borderColor: '#382C4C', borderWidth: 1 }
+          },
+          scales: {
+            x: { ticks: { color: '#8C78B4', maxTicksLimit: 12, maxRotation: 45 }, grid: { color: '#382C4C44' } },
+            y: { ticks: { color: '#8C78B4', precision: 0 }, grid: { color: '#382C4C44' }, beginAtZero: true }
+          }
+        }
+      });
+      chartInstances.push(ch);
+    }
+
+    // Deleted vs active
+    if (data.deletedCount !== undefined) {
+      const activeCount = data.totalMessages - data.deletedCount;
+      const ch = new Chart(deletedCanvas, {
+        type: 'doughnut',
+        data: {
+          labels: ['Active', 'Deleted'],
+          datasets: [{
+            data: [activeCount, data.deletedCount],
+            backgroundColor: ['#B450FF44', '#88329C'],
+            borderColor: '#141020',
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#8C78B4', font: { size: 10 }, boxWidth: 12, padding: 8 }
+            },
+            tooltip: {
+              backgroundColor: '#261E36', titleColor: '#DCC8FF', bodyColor: '#DCC8FF', borderColor: '#382C4C', borderWidth: 1,
+              callbacks: {
+                label: function(ctx) {
+                  const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                  return `${ctx.label}: ${ctx.parsed.toLocaleString()} (${Math.round(ctx.parsed * 100 / total)}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+      chartInstances.push(ch);
+    }
+
+    // Role distribution
+    if (data.roleDistribution && data.roleDistribution.length > 0) {
+      const colors = ['#B450FF', '#8C78B4', '#6B4F9E', '#DCC8FF', '#5B2B8C', '#A070D0', '#382C4C', '#7A5FA8', '#E0D0F0', '#4A3A6A'];
+      const ch = new Chart(rolesCanvas, {
+        type: 'doughnut',
+        data: {
+          labels: data.roleDistribution.map(r => r.top_role),
+          datasets: [{
+            data: data.roleDistribution.map(r => r.count),
+            backgroundColor: colors.slice(0, data.roleDistribution.length),
+            borderColor: '#141020',
+            borderWidth: 2,
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'right',
+              labels: { color: '#8C78B4', font: { size: 10 }, boxWidth: 12, padding: 8 }
+            },
+            tooltip: {
+              backgroundColor: '#261E36', titleColor: '#DCC8FF', bodyColor: '#DCC8FF', borderColor: '#382C4C', borderWidth: 1,
+              callbacks: {
+                label: function(ctx) {
+                  const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
+                  return `${ctx.label}: ${ctx.parsed.toLocaleString()} (${Math.round(ctx.parsed * 100 / total)}%)`;
+                }
+              }
+            }
+          }
+        }
+      });
+      chartInstances.push(ch);
+    }
   }
 
   function destroyCharts() {
@@ -234,28 +485,64 @@
           {/each}
         </select>
       </div>
-      <div class="control-group">
-        <label>Interval</label>
-        <select bind:value={interval}>
-          {#each intervalOptions as opt}
-            <option value={opt.value}>{opt.label}</option>
-          {/each}
-        </select>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-section">
+        <h3>Messages per Day</h3>
+        <div class="chart-wrap">
+          <canvas id="chart-messages"></canvas>
+        </div>
+      </div>
+      <div class="chart-section">
+        <h3>New Users per Day</h3>
+        <div class="chart-wrap">
+          <canvas id="chart-users"></canvas>
+        </div>
       </div>
     </div>
 
     <div class="charts-row">
       <div class="chart-section">
-        <h3>Messages per {interval}</h3>
+        <h3>Messages per Channel</h3>
         <div class="chart-wrap">
-          <canvas id="chart-messages"></canvas>
+          <canvas id="chart-channels"></canvas>
         </div>
       </div>
-
       <div class="chart-section">
-        <h3>New Users per {interval}</h3>
+        <h3>Messages by Day of Week (avg/week)</h3>
         <div class="chart-wrap">
-          <canvas id="chart-users"></canvas>
+          <canvas id="chart-dow"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-section">
+        <h3>Top Posters</h3>
+        <div class="chart-wrap">
+          <canvas id="chart-top-posters"></canvas>
+        </div>
+      </div>
+      <div class="chart-section">
+        <h3>Activity by Hour</h3>
+        <div class="chart-wrap">
+          <canvas id="chart-hour"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div class="charts-row">
+      <div class="chart-section">
+        <h3>Deleted vs Active Messages</h3>
+        <div class="chart-wrap">
+          <canvas id="chart-deleted"></canvas>
+        </div>
+      </div>
+      <div class="chart-section">
+        <h3>Role Distribution</h3>
+        <div class="chart-wrap">
+          <canvas id="chart-roles"></canvas>
         </div>
       </div>
     </div>
@@ -322,17 +609,13 @@
     min-width: 120px;
   }
   .charts-row {
-    display: flex;
+    display: grid;
+    grid-template-columns: 1fr;
     gap: 1rem;
-    flex-direction: column;
   }
   @media (min-width: 900px) {
     .charts-row {
-      flex-direction: row;
-    }
-    .charts-row .chart-section {
-      flex: 1;
-      min-width: 0;
+      grid-template-columns: 1fr 1fr;
     }
   }
   .chart-section h3 {
@@ -345,7 +628,7 @@
     background: var(--background);
     border-radius: 6px;
     padding: 0.5rem;
-    height: 200px;
+    height: 220px;
     position: relative;
   }
   .chart-wrap canvas {
