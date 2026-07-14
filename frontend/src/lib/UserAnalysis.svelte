@@ -23,6 +23,9 @@
   let viewingPastId = null;
   let pastCollapsed = true;
   let searchUsers = [];
+  let aiScanResult = null;
+  let aiScanLoading = false;
+  let aiScanError = '';
 
   // Expose analyzeUser so parent can call it
   export async function analyzeUser(userId) {
@@ -109,6 +112,24 @@
 
   function viewMessages(userId) {
     dispatch('viewMessages', userId);
+  }
+
+  async function runAiScan() {
+    if (!analysis) return;
+    aiScanLoading = true;
+    aiScanError = '';
+    aiScanResult = null;
+    try {
+      const r = await fetch(`/api/guild/${guildId}/user-ai-scan/${analysis.userId}`);
+      if (!r.ok) throw new Error(await r.text());
+      const data = await r.json();
+      if (data.error) throw new Error(data.error);
+      aiScanResult = data;
+    } catch (err) {
+      aiScanError = err.message;
+    } finally {
+      aiScanLoading = false;
+    }
   }
 
   function closeAnalysis() {
@@ -214,8 +235,24 @@
     </div>
     <div class="analysis-actions">
       <button class="btn-sm" on:click={() => viewMessages(analysis.userId)}><i class="fa-solid fa-message"></i> View Messages</button>
+      <button class="btn-sm" on:click={runAiScan} disabled={aiScanLoading}><i class="fa-solid fa-microchip"></i> {aiScanLoading ? 'Scanning...' : 'AI Scan'}</button>
       <button class="btn-sm" on:click={downloadAnalysis}>Download CSV</button>
       <button class="btn-sm" on:click={closeAnalysis}>Close</button>
+    </div>
+    <div class="ai-section">
+      {#if aiScanLoading}
+        <p style="color:var(--text-muted);font-size:0.85rem;margin-top:0.5rem">Running AI analysis...</p>
+      {/if}
+      {#if aiScanError}
+        <p style="color:var(--danger);font-size:0.85rem;margin-top:0.5rem">Error: {aiScanError}</p>
+      {/if}
+      {#if aiScanResult}
+        <div class="ai-result">
+          {#each aiScanResult.analysis.split('\n') as line}
+            <p>{line}</p>
+          {/each}
+        </div>
+      {/if}
     </div>
   {:else}
     <p style="color:var(--text-muted)">Search for a user above to scan them.</p>
@@ -301,6 +338,22 @@
   .analysis-actions {
     display: flex;
     gap: 0.5rem;
+  }
+  .ai-section {
+    margin-top: 0.5rem;
+  }
+  .ai-result {
+    background: var(--background);
+    border: 1px solid var(--surface-alt);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+    font-size: 0.85rem;
+    line-height: 1.5;
+    white-space: pre-wrap;
+  }
+  .ai-result p {
+    margin-bottom: 0.25rem;
   }
   .responsive-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
   .responsive-table th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; color: var(--text); font-weight: normal; }

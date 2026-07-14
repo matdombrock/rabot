@@ -9,7 +9,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export function createWebServer(client: Client) {
   const app = express();
-  const port = parseInt(process.env.PORT || "3000", 10);
+  const port = parseInt(process.env.PORT || "3000", 10); // PORT env var still supported for convenience
 
   app.use(express.json());
   app.use(express.static(path.join(__dirname, "public")));
@@ -420,6 +420,21 @@ export function createWebServer(client: Client) {
     } catch (err) {
       console.error("User analysis failed:", err);
       res.status(500).json({ error: "Failed to analyze user" });
+    }
+  });
+
+  // ── AI scan ──
+
+  app.get("/api/guild/:guildId/user-ai-scan/:userId", async (req, res) => {
+    const guild = client.guilds.cache.get(req.params.guildId);
+    if (!guild) { res.status(404).json({ error: "Guild not found" }); return; }
+    try {
+      const { generateAiScan } = await import("../reports/ai-scan.js");
+      const result = await generateAiScan(guild, req.params.userId);
+      res.json(result);
+    } catch (err) {
+      console.error("AI scan failed:", err);
+      res.status(500).json({ error: "Failed to run AI scan" });
     }
   });
 

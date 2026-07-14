@@ -20,8 +20,8 @@ async function backfill() {
     console.log(`Logged in as ${client.user?.tag}`);
 
     let guilds = [...client.guilds.cache.values()];
-    if (config.guildId) {
-      const g = client.guilds.cache.get(config.guildId);
+    if (config.discord.guildId) {
+      const g = client.guilds.cache.get(config.discord.guildId);
       if (!g) { console.error("GUILD_ID not found"); process.exit(1); }
       guilds = [g];
       console.log(`Targeting guild: ${g.name} (${g.id})`);
@@ -137,7 +137,7 @@ async function backfill() {
     process.exit(0);
   });
 
-  await client.login(config.token);
+  await client.login(config.discord.token);
 }
 
 backfill().catch((err) => {

@@ -15,7 +15,6 @@
   "dependencies": {
     "better-sqlite3": "^12.11.1",
     "discord.js": "^14.26.5",
-    "dotenv": "^17.4.2",
     "express": "^5.2.1",
     "lowdb": "^7.0.1"
   },

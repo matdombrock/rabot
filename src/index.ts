@@ -37,7 +37,7 @@ async function main() {
     createWebServer(client);
   });
 
-  await client.login(config.token);
+  await client.login(config.discord.token);
 }
 
 main().catch(console.error);
