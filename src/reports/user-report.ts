@@ -1,4 +1,5 @@
-import { Collection, type Guild, type TextChannel } from "discord.js";
+import type { Guild } from "discord.js";
+import { getGuildDb } from "../db.js";
 
 function csvEscape(value: string): string {
   if (value.includes(",") || value.includes('"') || value.includes("\n")) {
@@ -7,6 +8,9 @@ function csvEscape(value: string): string {
   return value;
 }
 
+const CACHE_TTL = 40_000;
+const memberCache = new Map<string, { fetchedAt: number }>();
+
 export interface UserReportResult {
   guildName: string;
   generated: string;
@@ -14,48 +18,25 @@ export interface UserReportResult {
   csv: string;
 }
 
-const MESSAGES_PER_CHANNEL = 100;
+export async function generateUserReport(guild: Guild): Promise<UserReportResult> {
+  const db = getGuildDb(guild.id);
 
-interface UserStats {
-  totalPosts: number;
-  lastPostAt: Date | null;
-}
-
-async function collectMessageStats(guild: Guild): Promise<Map<string, UserStats>> {
-  const stats = new Map<string, UserStats>();
-
-  const channels = guild.channels.cache.filter(
-    (ch): ch is TextChannel => ch.isTextBased() && ch.viewable
-  );
-
-  for (const [, channel] of channels) {
-    try {
-      const messages = await channel.messages.fetch({ limit: MESSAGES_PER_CHANNEL });
-      for (const [, msg] of messages) {
-        const existing = stats.get(msg.author.id) ?? { totalPosts: 0, lastPostAt: null };
-        existing.totalPosts++;
-        if (!existing.lastPostAt || msg.createdTimestamp > existing.lastPostAt.getTime()) {
-          existing.lastPostAt = msg.createdTimestamp > 0 ? new Date(msg.createdTimestamp) : null;
-        }
-        stats.set(msg.author.id, existing);
-      }
-    } catch {
-      // skip channels we can't access
-    }
+  const cached = memberCache.get(guild.id);
+  if (!cached || Date.now() - cached.fetchedAt > CACHE_TTL) {
+    await guild.members.fetch();
+    memberCache.set(guild.id, { fetchedAt: Date.now() });
   }
 
-  return stats;
-}
-
-export async function generateUserReport(guild: Guild): Promise<UserReportResult> {
-  const [members, messageStats] = await Promise.all([
-    guild.members.fetch(),
-    collectMessageStats(guild),
-  ]);
-
+  const members = guild.members.cache;
   const now = Date.now();
   const header = "ID,Username,Display Name,Top Role,Days in Server,Account Age (days),Bot,Total Posts,Last Post";
   const rows: string[] = [header];
+
+  const statsMap = new Map<string, { total: number; last: number | null }>();
+  const statsRows = db.prepare("SELECT author_id, COUNT(*) as total, MAX(created_at) as last FROM messages GROUP BY author_id").all() as { author_id: string; total: number; last: number | null }[];
+  for (const s of statsRows) {
+    statsMap.set(s.author_id, { total: s.total, last: s.last });
+  }
 
   for (const [, member] of members) {
     const user = member.user;
@@ -64,9 +45,9 @@ export async function generateUserReport(guild: Guild): Promise<UserReportResult
       : "?";
     const accountAge = Math.floor((now - user.createdAt.getTime()) / 86_400_000);
     const topRole = member.roles.highest.name;
-    const userStats = messageStats.get(user.id);
-    const totalPosts = userStats?.totalPosts ?? 0;
-    const lastPost = userStats?.lastPostAt?.toISOString().slice(0, 19).replace("T", " ") ?? "";
+    const stats = statsMap.get(user.id);
+    const totalPosts = stats?.total ?? 0;
+    const lastPost = stats?.last ? new Date(stats.last).toISOString().slice(0, 19).replace("T", " ") : "";
 
     rows.push(
       [

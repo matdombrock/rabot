@@ -4,12 +4,19 @@
   import BotStatus from './lib/BotStatus.svelte'
   import Say from './lib/Say.svelte'
   import ImageFilter from './lib/ImageFilter.svelte'
+  import TextFilter from './lib/TextFilter.svelte'
   import QuickReport from './lib/QuickReport.svelte'
   import FullReport from './lib/FullReport.svelte'
   import RecentReports from './lib/RecentReports.svelte'
+  import Messages from './lib/Messages.svelte'
 
   let guildId = '';
   let guilds = [];
+  let analyzeUserId = '';
+
+  function onAnalyzeUser(id) {
+    analyzeUserId = id;
+  }
 
   onMount(async () => {
     const r = await fetch('/api/guilds');
@@ -48,8 +55,8 @@
   <BotStatus />
 </Card>
 
-<Card title="User List">
-  <QuickReport {guildId} />
+<Card title="User List" expanded={!!analyzeUserId}>
+  <QuickReport {guildId} {analyzeUserId} />
 </Card>
 
 <Card title="Say">
@@ -60,12 +67,20 @@
   <ImageFilter {guildId} />
 </Card>
 
+<Card title="Text Filter">
+  <TextFilter {guildId} />
+</Card>
+
 <Card title="Full Report">
   <FullReport {guildId} />
 </Card>
 
 <Card title="Recent Reports">
   <RecentReports {guildId} />
+</Card>
+
+<Card title="Messages">
+  <Messages {guildId} on:analyzeUser={(e) => onAnalyzeUser(e.detail)} />
 </Card>
 
 <style>

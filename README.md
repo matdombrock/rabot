@@ -1,6 +1,6 @@
 # dbot
 
-A Discord bot built with discord.js, TypeScript, and Svelte, with a web control panel.
+A Discord bot with a Svelte web control panel. Moderates images via SHA256 checksum matching, generates user analysis, and provides a web panel for management.
 
 ## Setup
 
@@ -16,7 +16,7 @@ cp .env.example .env
 |---|---|---|
 | `DISCORD_TOKEN` | Yes | Bot token from the Discord Developer Portal |
 | `CLIENT_ID` | Yes | Application/client ID from the Developer Portal |
-| `GUILD_ID` | No | Server ID for instant guild command registration |
+| `GUILD_ID` | No | Server ID for targeted backfill |
 | `PORT` | No | Web panel port (default: `3000`) |
 
 ### Required Intents
@@ -24,19 +24,20 @@ cp .env.example .env
 Enable these in the Developer Portal under **Bot > Privileged Gateway Intents**:
 
 - **Server Members Intent** — required for member data in reports
-- **Message Content Intent** — required for image checksum matching and post stats
+- **Message Content Intent** — required for image checksum matching and message history
 
 ## Usage
 
 ```bash
 npm run start       # Start bot + web panel
 npm run deploy      # Register slash commands with Discord
+npm run backfill    # One-time scan to populate message history
 npm run build       # Compile TypeScript + build frontend
 npm run build:frontend  # Frontend only (Svelte → static files)
 npm run typecheck
 ```
 
-`npm run start` boots the Discord bot and starts the web control panel at `http://localhost:3000`.
+`npm run start` boots the Discord bot and starts the web control panel at `http://localhost:3000`. Enter a guild ID at the top to start exploring.
 
 ## Slash Commands
 
@@ -49,16 +50,32 @@ npm run typecheck
 
 The panel is a Svelte app built with Vite. Run `npm run build:frontend` after any changes. The build output goes to `src/web/public/` and is served by the Express backend.
 
+Enter a guild ID at the top to scope all panels to that server.
+
 ### Panels
 
 | Panel | Description |
 |---|---|
 | **Bot Status** | Bot tag, Node version, uptime, WS latency, and a Ping button |
+| **User List** | All guild members with avatars, display names, roles, and days in server. Supports fuzzy search and sortable columns. Click **Analyze** on any user |
 | **Say** | Send messages to a channel. Keeps a history of sent messages with delete-from-server functionality |
-| **Image Filter** | Manage SHA256 checksum watchlist. Images posted in any channel are compared against the list — matched images trigger a ban/kick and purge all user messages. Action can be set per-guild. A log of all moderation actions is shown |
-| **Quick Report** | Live member list (Username, Display Name, Top Role, Days in Server). Data cached for 40s to avoid rate limits. Supports fuzzy search across all columns and sortable headers |
-| **Full Report** | Detailed member report with message stats (Total Posts, Last Post). Sampled from the last 100 messages per text channel. Saved to report history |
-| **Recent Reports** | Browse, download, and delete previously generated full reports |
+| **Image Filter** | Manage SHA256 checksum watchlist. Images posted in any channel are compared against the list — matched images trigger a ban/kick and purge all user messages. A log of all moderation actions is shown |
+| **Full Report** | Detailed member report with message stats (Total Posts, Last Post) from SQLite. Saved to report history |
+| **Recent Reports** | Browse, download, and delete previously generated full reports and user analyses |
+| **Messages** | Browse per-channel message history from the SQLite archive with pagination |
+
+### User Analysis
+
+Click **Analyze** on any user in the User List to open the analysis panel. Shows:
+
+- Username, Display Name, User ID
+- Discord join date and guild join date
+- Days in server and account age
+- Top role and role list
+- Boosting status and bot flag
+- Total messages and last post date (from SQLite, no channel scanning)
+
+Every analysis is saved to the reports database and accessible via the past analyses list in the card.
 
 ### Image Filter Details
 
@@ -68,71 +85,76 @@ The panel is a Svelte app built with Vite. Run `npm run build:frontend` after an
 
 ## Database
 
-Data is stored in three separate LowDB files, split by feature so writing to one doesn't serialize the others:
+Two storage layers:
 
-| File | Contents |
-|---|---|
-| `main.db` | Guild settings, say message history |
-| `reports.db` | Full report records (with CSVs) |
-| `imagecheck.db` | Checksum watchlist, ban/kick action, moderation logs |
+**`db/main.json`** (LowDB) — global configuration only. Single JSON file.
 
-Each is a named export from `src/db.ts` — always use `import { mainDb } from "../db.js"` (never default imports).
+**`db/{guildId}/data.db`** (SQLite) — per-guild database with tables:
+
+| Table | Contents | Populated by |
+|---|---|---|
+| `messages` | Full message history | Live `messageCreate` + `npm run backfill` |
+| `members` | Member profiles | Live `messageCreate` + backfill |
+| `reports` | Saved reports and user analyses | On generate |
+| `modlogs` | Image filter moderation actions | On ban/kick match |
+| `saylogs` | Say message history | On send |
+| `checksums` | Watched SHA256 checksums with labels | Via web panel |
+| `config` | Key/value settings (action: ban/kick) | Via web panel |
+
+Run `npm run backfill` once to scan all text channels and populate the message history. Set `GUILD_ID` in `.env` to target a single guild.
 
 ## Project Structure
 
 ```
-src/                        # Backend (TypeScript + Express)
-├── index.ts                # Entry point, client + events + web server
-├── config.ts               # Env var loading
-├── db.ts                   # LowDB schema and singleton
-├── types.ts                # Command and Event interfaces
-├── deploy-commands.ts      # Registers slash commands
-├── commands/               # Slash command modules
-│   ├── ping.ts
-│   └── info.ts
+src/
+├── index.ts              # Entry point, starts client + web server
+├── db.ts                 # mainDb (LowDB) + getGuildDb() (SQLite factory)
+├── backfill.ts           # One-time historical message scan
+├── config.ts             # Env vars
+├── deploy-commands.ts    # Registers slash commands
+├── types.ts              # Command and Event interfaces
+├── commands/             # Slash command modules (ping, info)
 ├── events/
-│   ├── ready.ts            # Logs bot tag on ready
-│   ├── interactionCreate.ts # Routes slash commands
-│   └── messageCreate.ts    # Image checksum matching + ban/kick
+│   ├── ready.ts
+│   ├── interactionCreate.ts
+│   └── messageCreate.ts  # Live message tracking + image checksum matching
 ├── checksum/
-│   └── compute.ts          # Streaming SHA256 from Discord CDN
+│   └── compute.ts        # Streaming SHA256 from Discord CDN
 ├── helpers/
-│   └── deleteMessages.ts   # Purge all messages from a user
+│   └── deleteMessages.ts # Purge all messages from a user
 ├── reports/
-│   ├── quick-report.ts     # Live member cache (40s TTL)
-│   └── user-report.ts      # Full report with message stats
+│   ├── quick-report.ts   # Live member list (40s TTL cache)
+│   ├── user-report.ts    # Full report with SQLite messagestats
+│   └── user-analysis.ts  # Per-user analysis from SQLite
 └── web/
-    ├── server.ts           # Express API + static file server
-    └── public/             # Built frontend (auto-generated)
+    ├── server.ts         # Express API + static file server
+    └── public/           # Built frontend (generated)
 
-frontend/                   # Frontend (Svelte + Vite)
-├── vite.config.js          # Builds to ../src/web/public
-├── index.html
+frontend/
 └── src/
-    ├── main.js             # Entry point
-    ├── app.css             # Global styles + CSS custom properties
-    ├── App.svelte          # Main layout with all panels
+    ├── main.js
+    ├── app.css           # Theme CSS variables
+    ├── App.svelte        # Guild selector + all panel cards
     └── lib/
-        ├── Card.svelte         # Collapsible card wrapper
-        ├── BotStatus.svelte
-        ├── Say.svelte
-        ├── ImageFilter.svelte
-        ├── ReportPanel.svelte  # Shared report logic (quick + full)
-        ├── QuickReport.svelte
-        ├── FullReport.svelte
-        └── RecentReports.svelte
+        ├── Card.svelte           # Collapsible card wrapper
+        ├── BotStatus.svelte      # Bot info + ping
+        ├── Say.svelte            # Send messages + history
+        ├── ImageFilter.svelte    # Checksum watchlist + mod log
+        ├── QuickReport.svelte    # User list + analyze + analysis history
+        ├── ReportPanel.svelte    # Shared report rendering (full report)
+        ├── FullReport.svelte     # Full member report with stats
+        ├── RecentReports.svelte  # Saved report history
+        └── Messages.svelte       # Per-channel message browser
 ```
 
 ## Frontend Development
-
-The frontend is a standalone Svelte project. For development with hot-reload:
 
 ```bash
 cd frontend
 npm run dev
 ```
 
-The dev server runs on a different port; API calls are proxied to the Express backend. When ready, build with `npm run build:frontend` (or `npm run build` from root).
+The dev server runs on a different port; API calls are proxied to the Express backend. When ready, build with `npm run build:frontend`.
 
 ### Theming
 

@@ -3,7 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import type { Client } from "discord.js";
-import { getGuildDb, readGuildDb } from "../db.js";
+import { getGuildDb } from "../db.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -46,6 +46,49 @@ export function createWebServer(client: Client) {
     res.json(channels);
   });
 
+  app.get("/api/guild/:guildId/members", async (req, res) => {
+    const db = getGuildDb(req.params.guildId);
+    const rows = db.prepare("SELECT id, username, display_name, avatar_url FROM members ORDER BY username ASC").all();
+    res.json(rows);
+  });
+
+  app.get("/api/guild/:guildId/messages/:channelId", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const limit = Math.min(parseInt(req.query.limit as string) || 50, 200);
+      const before = req.query.before as string | undefined;
+      const search = req.query.q as string | undefined;
+      const authorId = req.query.author_id as string | undefined;
+      const hasUrl = req.query.has_url === "true";
+      const hasImage = req.query.has_image === "true";
+      const hasEveryone = req.query.has_everyone === "true";
+
+      const conditions: string[] = [];
+      const params: any[] = [];
+      let rows: any[];
+
+      if (search) { conditions.push("m.content LIKE ?"); params.push(`%${search}%`); }
+      if (authorId) { conditions.push("m.author_id = ?"); params.push(authorId); }
+      if (hasUrl) { conditions.push("(m.content LIKE '%http%' OR m.content LIKE 'www.%')"); }
+      if (hasImage) { conditions.push("(m.content LIKE '%.png%' OR m.content LIKE '%.jpg%' OR m.content LIKE '%.jpeg%' OR m.content LIKE '%.gif%' OR m.content LIKE '%.webp%')"); }
+      if (hasEveryone) { conditions.push("m.content LIKE '%@everyone%'"); }
+      if (req.params.channelId !== "_all") { conditions.push("m.channel_id = ?"); params.push(req.params.channelId); }
+
+      const where = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
+      const query = `SELECT m.*, u.username, u.display_name, u.avatar_url FROM messages m LEFT JOIN members u ON m.author_id = u.id ${where}${before ? " AND m.created_at < (SELECT created_at FROM messages WHERE id = ?)" : ""} ORDER BY m.created_at DESC LIMIT ?`;
+
+      if (before) params.push(before);
+      params.push(limit);
+      rows = db.prepare(query).all(...params);
+
+      const last = rows[rows.length - 1];
+      res.json({ messages: rows, next: last ? last.id : null, search: !!search });
+    } catch (err) {
+      console.error("Messages fetch failed:", err);
+      res.status(500).json({ error: "Failed to fetch messages" });
+    }
+  });
+
   // ── Reports ──
 
   app.get("/api/guild/:guildId/reports/quick-report", async (req, res) => {
@@ -68,17 +111,9 @@ export function createWebServer(client: Client) {
       const { generateUserReport } = await import("../reports/user-report.js");
       const result = await generateUserReport(guild);
       const db = getGuildDb(req.params.guildId);
-      await db.reports.read();
-      db.reports.data.reports.push({
-        id: crypto.randomUUID(),
-        guildId: guild.id,
-        guildName: guild.name,
-        type: "full",
-        generated: result.generated,
-        totalMembers: result.totalMembers,
-        csv: result.csv,
-      });
-      await db.reports.write();
+      db.prepare("INSERT INTO reports (id, guild_name, type, generated, total_members, csv) VALUES (?, ?, ?, ?, ?, ?)").run(
+        crypto.randomUUID(), guild.name, "full", result.generated, result.totalMembers, result.csv
+      );
       res.json(result);
     } catch (err) {
       console.error("Report generation failed:", err);
@@ -91,9 +126,7 @@ export function createWebServer(client: Client) {
   app.post("/api/guild/:guildId/send-message", async (req, res) => {
     const guildId = req.params.guildId;
     const { channelId, content } = req.body;
-    if (!channelId || !content) {
-      res.status(400).json({ error: "Missing channelId or content" }); return;
-    }
+    if (!channelId || !content) { res.status(400).json({ error: "Missing channelId or content" }); return; }
     const guild = client.guilds.cache.get(guildId);
     if (!guild) { res.status(404).json({ error: "Guild not found" }); return; }
     const channel = guild.channels.cache.get(channelId);
@@ -105,18 +138,9 @@ export function createWebServer(client: Client) {
 
     try {
       const db = getGuildDb(guildId);
-      await db.say.read();
-      db.say.data.saylogs.push({
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        guildId,
-        guildName: guild.name,
-        channelId,
-        channelName: (channel as any).name ?? "unknown",
-        content,
-        messageId: msg.id,
-      });
-      await db.say.write();
+      db.prepare("INSERT INTO saylogs (id, timestamp, guild_id, guild_name, channel_id, channel_name, content, message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?)").run(
+        crypto.randomUUID(), new Date().toISOString(), guildId, guild.name, channelId, (channel as any).name ?? "unknown", content, msg.id
+      );
       res.json({ ok: true });
     } catch (err) {
       console.error("Failed to log message:", err);
@@ -126,28 +150,25 @@ export function createWebServer(client: Client) {
 
   app.get("/api/guild/:guildId/saylogs", async (req, res) => {
     const db = getGuildDb(req.params.guildId);
-    await db.say.read();
-    res.json(db.say.data.saylogs);
+    const rows = db.prepare("SELECT * FROM saylogs ORDER BY timestamp DESC").all();
+    res.json(rows);
   });
 
   app.delete("/api/guild/:guildId/saylogs/:id", async (req, res) => {
     try {
       const db = getGuildDb(req.params.guildId);
-      await db.say.read();
-      const index = db.say.data.saylogs.findIndex((e) => e.id === req.params.id);
-      if (index === -1) { res.status(404).json({ error: "Not found" }); return; }
-      const entry = db.say.data.saylogs[index];
+      const entry = db.prepare("SELECT * FROM saylogs WHERE id = ?").get(req.params.id) as any;
+      if (!entry) { res.status(404).json({ error: "Not found" }); return; }
 
-      const guild = client.guilds.cache.get(entry.guildId);
+      const guild = client.guilds.cache.get(entry.guild_id);
       if (guild) {
-        const channel = guild.channels.cache.get(entry.channelId);
+        const channel = guild.channels.cache.get(entry.channel_id);
         if (channel?.isTextBased()) {
-          try { const m = await channel.messages.fetch(entry.messageId); await m.delete(); } catch { }
+          try { const m = await channel.messages.fetch(entry.message_id); await m.delete(); } catch { }
         }
       }
 
-      db.say.data.saylogs.splice(index, 1);
-      await db.say.write();
+      db.prepare("DELETE FROM saylogs WHERE id = ?").run(req.params.id);
       res.json({ ok: true });
     } catch (err) {
       console.error("Failed to delete say log:", err);
@@ -160,9 +181,8 @@ export function createWebServer(client: Client) {
   app.get("/api/guild/:guildId/history", async (req, res) => {
     try {
       const db = getGuildDb(req.params.guildId);
-      await db.reports.read();
-      const reports = (db.reports.data?.reports ?? []).map(({ csv: _, ...rest }) => rest);
-      res.json(reports);
+      const rows = db.prepare("SELECT id, guild_name, type, generated, total_members, username FROM reports ORDER BY generated DESC").all();
+      res.json(rows);
     } catch (err) {
       console.error("History fetch failed:", err);
       res.status(500).json({ error: "Failed to fetch history" });
@@ -172,10 +192,9 @@ export function createWebServer(client: Client) {
   app.get("/api/guild/:guildId/history/:id", async (req, res) => {
     try {
       const db = getGuildDb(req.params.guildId);
-      await db.reports.read();
-      const report = db.reports.data?.reports.find((r) => r.id === req.params.id);
-      if (!report) { res.status(404).json({ error: "Report not found" }); return; }
-      res.json(report);
+      const row = db.prepare("SELECT * FROM reports WHERE id = ?").get(req.params.id) as any;
+      if (!row) { res.status(404).json({ error: "Report not found" }); return; }
+      res.json(row);
     } catch (err) {
       console.error("History fetch failed:", err);
       res.status(500).json({ error: "Failed to fetch report" });
@@ -185,11 +204,8 @@ export function createWebServer(client: Client) {
   app.delete("/api/guild/:guildId/history/:id", async (req, res) => {
     try {
       const db = getGuildDb(req.params.guildId);
-      await db.reports.read();
-      const index = db.reports.data?.reports.findIndex((r) => r.id === req.params.id) ?? -1;
-      if (index === -1) { res.status(404).json({ error: "Report not found" }); return; }
-      db.reports.data!.reports.splice(index, 1);
-      await db.reports.write();
+      const result = db.prepare("DELETE FROM reports WHERE id = ?").run(req.params.id);
+      if (result.changes === 0) { res.status(404).json({ error: "Report not found" }); return; }
       res.json({ ok: true });
     } catch (err) {
       console.error("History delete failed:", err);
@@ -197,7 +213,7 @@ export function createWebServer(client: Client) {
     }
   });
 
-  // ── Image check ──
+  // ── User analysis ──
 
   app.get("/api/guild/:guildId/user-analysis/:userId", async (req, res) => {
     const guild = client.guilds.cache.get(req.params.guildId);
@@ -206,17 +222,9 @@ export function createWebServer(client: Client) {
       const { generateUserAnalysis } = await import("../reports/user-analysis.js");
       const result = await generateUserAnalysis(guild, req.params.userId);
       const db = getGuildDb(req.params.guildId);
-      await db.reports.read();
-      db.reports.data.reports.push({
-        id: crypto.randomUUID(),
-        guildId: guild.id,
-        guildName: guild.name,
-        type: "analysis",
-        generated: result.generated,
-        totalMembers: 1,
-        csv: result.csv,
-      });
-      await db.reports.write();
+      db.prepare("INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
+        crypto.randomUUID(), guild.name, "analysis", result.generated, 1, result.username, result.csv
+      );
       res.json(result);
     } catch (err) {
       console.error("User analysis failed:", err);
@@ -224,10 +232,13 @@ export function createWebServer(client: Client) {
     }
   });
 
+  // ── Image check ──
+
   app.get("/api/guild/:guildId/checksums", async (req, res) => {
     const db = getGuildDb(req.params.guildId);
-    await db.imageCheck.read();
-    res.json({ checksums: db.imageCheck.data.checksums, action: db.imageCheck.data.action });
+    const checksums = db.prepare("SELECT checksum, label FROM checksums").all();
+    const actionRow = db.prepare("SELECT value FROM config WHERE key = 'action'").get() as { value: string } | undefined;
+    res.json({ checksums, action: actionRow?.value ?? "ban" });
   });
 
   app.post("/api/guild/:guildId/checksums", async (req, res) => {
@@ -235,10 +246,9 @@ export function createWebServer(client: Client) {
     const { checksum, label } = req.body;
     if (!checksum || typeof checksum !== "string") { res.status(400).json({ error: "Missing checksum" }); return; }
     const c = checksum.toLowerCase();
-    await db.imageCheck.read();
-    if (db.imageCheck.data.checksums.some((e) => e.checksum === c)) { res.json({ ok: true }); return; }
-    db.imageCheck.data.checksums.push({ checksum: c, label: String(label ?? "") });
-    await db.imageCheck.write();
+    const existing = db.prepare("SELECT checksum FROM checksums WHERE checksum = ?").get(c);
+    if (existing) { res.json({ ok: true }); return; }
+    db.prepare("INSERT INTO checksums (checksum, label) VALUES (?, ?)").run(c, String(label ?? ""));
     res.json({ ok: true });
   });
 
@@ -246,35 +256,59 @@ export function createWebServer(client: Client) {
     const db = getGuildDb(req.params.guildId);
     const { action } = req.body;
     if (action !== "ban" && action !== "kick") { res.status(400).json({ error: "Action must be ban or kick" }); return; }
-    await db.imageCheck.read();
-    db.imageCheck.data.action = action;
-    await db.imageCheck.write();
+    db.prepare("UPDATE config SET value = ? WHERE key = 'action'").run(action);
     res.json({ ok: true });
   });
 
   app.delete("/api/guild/:guildId/checksums/:checksum", async (req, res) => {
     const db = getGuildDb(req.params.guildId);
-    const c = req.params.checksum.toLowerCase();
-    await db.imageCheck.read();
-    const index = db.imageCheck.data.checksums.findIndex((e) => e.checksum === c);
-    if (index === -1) { res.status(404).json({ error: "Not found" }); return; }
-    db.imageCheck.data.checksums.splice(index, 1);
-    await db.imageCheck.write();
+    const result = db.prepare("DELETE FROM checksums WHERE checksum = ?").run(req.params.checksum.toLowerCase());
+    if (result.changes === 0) { res.status(404).json({ error: "Not found" }); return; }
     res.json({ ok: true });
   });
 
   app.get("/api/guild/:guildId/modlogs", async (req, res) => {
     const db = getGuildDb(req.params.guildId);
-    await db.imageCheck.read();
-    res.json(db.imageCheck.data.modlogs);
+    const rows = db.prepare("SELECT * FROM modlogs ORDER BY timestamp DESC").all();
+    res.json(rows);
   });
 
   app.delete("/api/guild/:guildId/modlogs", async (req, res) => {
     const db = getGuildDb(req.params.guildId);
-    await db.imageCheck.read();
-    db.imageCheck.data.modlogs = [];
-    await db.imageCheck.write();
+    db.prepare("DELETE FROM modlogs").run();
     res.json({ ok: true });
+  });
+
+  // ── Text filter ──
+
+  app.get("/api/guild/:guildId/textfilters", async (req, res) => {
+    const db = getGuildDb(req.params.guildId);
+    const rows = db.prepare("SELECT id, pattern, action, label FROM textfilters ORDER BY created_at DESC").all();
+    res.json(rows);
+  });
+
+  app.post("/api/guild/:guildId/textfilters", async (req, res) => {
+    const db = getGuildDb(req.params.guildId);
+    const { pattern, action, label } = req.body;
+    if (!pattern || typeof pattern !== "string") { res.status(400).json({ error: "Missing pattern" }); return; }
+    if (!["warn", "kick", "ban"].includes(action)) { res.status(400).json({ error: "Action must be warn, kick, or ban" }); return; }
+    db.prepare("INSERT INTO textfilters (id, pattern, action, label, created_at) VALUES (?, ?, ?, ?, ?)").run(
+      crypto.randomUUID(), pattern, action, String(label ?? ""), new Date().toISOString()
+    );
+    res.json({ ok: true });
+  });
+
+  app.delete("/api/guild/:guildId/textfilters/:id", async (req, res) => {
+    const db = getGuildDb(req.params.guildId);
+    const result = db.prepare("DELETE FROM textfilters WHERE id = ?").run(req.params.id);
+    if (result.changes === 0) { res.status(404).json({ error: "Not found" }); return; }
+    res.json({ ok: true });
+  });
+
+  app.get("/api/guild/:guildId/textfilter-logs", async (req, res) => {
+    const db = getGuildDb(req.params.guildId);
+    const rows = db.prepare("SELECT * FROM textfilter_logs ORDER BY timestamp DESC LIMIT 100").all();
+    res.json(rows);
   });
 
   // ── ──

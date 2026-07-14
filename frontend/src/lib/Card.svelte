@@ -1,6 +1,9 @@
 <script>
   let collapsed = false;
   export let title = "";
+  export let expanded = false;
+
+  $: if (expanded) collapsed = false;
 </script>
 
 <div class="card">
