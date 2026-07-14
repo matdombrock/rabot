@@ -34,15 +34,27 @@ export interface ModLog {
   messagesDeleted: number;
 }
 
+export interface SayLog {
+  id: string;
+  timestamp: string;
+  guildId: string;
+  guildName: string;
+  channelId: string;
+  channelName: string;
+  content: string;
+  messageId: string;
+}
+
 interface Data {
   settings: GuildSettings[];
   reports: ReportRecord[];
   modlogs: ModLog[];
+  saylogs: SayLog[];
   checksums: { checksum: string; label: string }[];
   action: Action;
 }
 
-const defaultData: Data = { settings: [], reports: [], modlogs: [], checksums: [], action: "ban" };
+const defaultData: Data = { settings: [], reports: [], modlogs: [], saylogs: [], checksums: [], action: "ban" };
 
 const adapter = new JSONFile<Data>("db.json");
 const db = new Low<Data>(adapter, defaultData);

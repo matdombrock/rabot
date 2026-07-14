@@ -1,5 +1,6 @@
 import express from "express";
 import path from "node:path";
+import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import type { Client } from "discord.js";
 import db from "../db.js";
@@ -141,12 +142,69 @@ export function createWebServer(client: Client) {
       return;
     }
 
+    let msg;
     try {
-      await channel.send(content);
-      res.json({ ok: true });
+      msg = await channel.send(content);
     } catch (err) {
       console.error("Failed to send message:", err);
       res.status(500).json({ error: "Failed to send message" });
+      return;
+    }
+
+    try {
+      await db.read();
+      (db.data.saylogs ??= []).push({
+        id: crypto.randomUUID(),
+        timestamp: new Date().toISOString(),
+        guildId,
+        guildName: guild.name,
+        channelId,
+        channelName: (channel as any).name ?? "unknown",
+        content,
+        messageId: msg.id,
+      });
+      await db.write();
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Failed to log message:", err);
+      res.json({ ok: true, warning: "Message sent but not logged" });
+    }
+  });
+
+  app.get("/api/saylogs", async (_req, res) => {
+    await db.read();
+    res.json(db.data.saylogs);
+  });
+
+  app.delete("/api/saylogs/:id", async (req, res) => {
+    try {
+      await db.read();
+      const index = db.data.saylogs.findIndex((e) => e.id === req.params.id);
+      if (index === -1) {
+        res.status(404).json({ error: "Not found" });
+        return;
+      }
+      const entry = db.data.saylogs[index];
+
+      const guild = client.guilds.cache.get(entry.guildId);
+      if (guild) {
+        const channel = guild.channels.cache.get(entry.channelId);
+        if (channel?.isTextBased()) {
+          try {
+            const msg = await channel.messages.fetch(entry.messageId);
+            await msg.delete();
+          } catch {
+            // message already deleted or inaccessible
+          }
+        }
+      }
+
+      db.data.saylogs.splice(index, 1);
+      await db.write();
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Failed to delete say log:", err);
+      res.status(500).json({ error: "Failed to delete" });
     }
   });
 
