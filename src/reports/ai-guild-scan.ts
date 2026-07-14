@@ -7,7 +7,7 @@ import { dirname, join } from "node:path";
 import crypto from "node:crypto";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SYSTEM_PROMPT = readFileSync(join(__dirname, "ai-guild-scan-prompt.txt"), "utf-8");
+const SYSTEM_PROMPT = readFileSync(join(__dirname, "prompts/ai-guild-scan-prompt.txt"), "utf-8");
 
 const { truncate, maxTokens, temperature } = config.aiScan;
 
