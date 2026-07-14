@@ -20,6 +20,9 @@ const messageDelete: Event = {
     const db = getGuildDb(guildId);
     const timestamp = new Date().toISOString();
 
+    // Mark as deleted in messages table
+    db.prepare("UPDATE messages SET deleted = 1 WHERE id = ?").run(message.id);
+
     // Resolve author info — prefer cached data, fall back to DB
     const authorId = message.author?.id ?? "";
     const authorName = message.author?.username ?? "";
