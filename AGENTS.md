@@ -73,14 +73,15 @@ src/
 ├── events/
 │   ├── ready.ts
 │   ├── interactionCreate.ts
-│   └── messageCreate.ts  # Live message tracking + image checksum matching
+│   ├── messageCreate.ts     # Live message tracking + image checksum matching
+│   ├── messageDelete.ts     # Log all message deletions to actionlogs
+│   └── guildAuditLogEntryCreate.ts # Track moderation actions via audit logs
 ├── checksum/
 │   └── compute.ts        # Streaming SHA256 from Discord CDN
 ├── helpers/
 │   └── deleteMessages.ts # Purge all messages from a user
 ├── reports/
 │   ├── quick-report.ts   # Live member list (40s TTL cache)
-│   ├── user-report.ts    # Full report with SQLite messagestats
 │   └── user-analysis.ts  # Per-user analysis from SQLite
 └── web/
     ├── server.ts         # Express API + static file server
@@ -97,22 +98,34 @@ frontend/
         ├── Say.svelte            # Send messages + history
         ├── ImageFilter.svelte    # Checksum watchlist + mod log
         ├── TextFilter.svelte     # Text pattern filter management + log
-        ├── QuickReport.svelte    # User list + analyze + collapsible analysis section + past analyses
-        ├── ReportPanel.svelte    # Shared report rendering (full report)
-        ├── FullReport.svelte     # Full member report with stats
-        ├── RecentReports.svelte  # Saved report history
-        └── Messages.svelte       # Per-channel message browser with pagination, filters, search, CSV export
+        ├── QuickReport.svelte    # User list with sortable columns, filters, member/online counts
+        ├── UserAnalysis.svelte   # Per-user scan with details, past scans, and view messages
+        ├── UserSearchBox.svelte  # Reusable user autocomplete with avatar
+        ├── AvatarPopup.svelte    # Avatar lightbox with copy/save
+        ├── Analytics.svelte      # Server stats with Chart.js charts
+        ├── Settings.svelte       # Dashboard/bot settings (localStorage + DB)
+        ├── ModLog.svelte         # Action log for mod actions and audit events
+        ├── RecentReports.svelte  # Saved scan history
+        └── Messages.svelte       # Per-channel message browser with pagination, filters, search, CSV export, HTML export
 ```
 
 ## Key Patterns
 
 - **Web panel** is a Svelte SPA — all data fetching via `fetch()` to the Express API on the same origin
 - **Guild ID** is entered at the top of the page, passed to all panels as a prop. Last used guild ID is persisted to `localStorage` and restored on page load.
-- **Card collapse** — the entire `.card-header` is clickable to collapse/expand each panel. The User Analysis section within QuickReport has its own independent collapse state.
-- **Responsive** — shared CSS utilities (`.table-scroll`, `.row`, `.add-row`, `.btn-sm`) in `app.css` with mobile breakpoints at 640px. Tables use horizontal scroll on small screens. `.add-row` stacks vertically on mobile.
-- **Messages CSV export** — exported client-side from the currently loaded (filtered or unfiltered) message array. No backend round-trip needed.
+- **Card collapse** — the entire `.card-header` is clickable to collapse/expand each panel. Cards support `expanded`, `collapseAll`, and `forceOpen` props.
+- **Drag-and-drop reorder** — panes can be reordered via drag handle. Order persisted to `dbot-pane-order` in localStorage.
+- **Responsive** — shared CSS utilities (`.table-scroll`, `.row`, `.add-row`, `.btn-sm`) in `app.css` with mobile breakpoints at 640px. Tables use horizontal scroll. `.add-row` stacks vertically on mobile. Guild info section hides below 700px.
+- **Messages CSV export** — exported client-side from the currently loaded message array.
+- **Messages HTML export** — standalone HTML file with search, date grouping, and newest/oldest toggle.
 - **Image checksums** are computed by streaming from Discord's CDN — no temp files
-- **Message stats** are queried from SQLite, not stored separately — `SELECT COUNT(*), MAX(created_at) FROM messages WHERE author_id = ?`
-- **Live tracking** happens in `messageCreate` — one SQLite insert per message + member upsert
+- **Message stats** are queried from SQLite — `SELECT COUNT(*), MAX(created_at) FROM messages WHERE author_id = ?`
+- **Live tracking** via `messageCreate` — one SQLite insert per message + member upsert
+- **Message deletion** — deletes from Discord via API, marks as `deleted` in DB, logged to `actionlogs` table. Deleted messages remain visible with a `(deleted)` tag.
+- **Action log** — tracks manual deletes, audit log events (kicks, bans, channel changes, automod), and message removal events in the `actionlogs` table.
 - **Backfill** uses batched inserts via `db.transaction()` and `INSERT OR IGNORE` for idempotency
-- **CSS theming** is via `var(--primary)`, `var(--surface)`, etc. in `frontend/src/app.css`. Never hardcode colors in components.
+- **CSS theming** via `var(--primary)`, `var(--surface)`, etc. in `frontend/src/app.css`. Never hardcode colors in components.
+- **Font Awesome** via `@fortawesome/fontawesome-free` — icons used in pane headers and various controls.
+- **Chart.js** for analytics charts (messages/day, new users/day) with date range and interval controls.
+- **Settings** stored in `dbot-settings` in localStorage: `showTips` (toggle pane descriptions), `showQuickSearch`.
+- **Avatar popup** — clicking any avatar shows a lightbox with `?size=512` version, copy URL, and save buttons.

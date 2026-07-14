@@ -9,6 +9,7 @@
   export let expanded = false;
   export let collapseAll = false;
   export let collapsedState = undefined;
+  export let forceOpen = 0;
 
   // On initial mount or collapseAll transition, collapse
   let lastCollapseAll = false;
@@ -22,6 +23,8 @@
   }
 
   $: if (expanded && !collapseAll) collapsed = false;
+  // Force open when forceOpen counter changes (handles re-selection)
+  $: if (forceOpen) collapsed = false;
 
   function toggle() {
     collapsed = !collapsed;

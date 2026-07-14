@@ -64,7 +64,7 @@
 </div>
 
 <style>
-  .table-scroll { margin-top: 1rem; max-height: 70vh; }
+  .table-scroll { margin-top: 1rem; max-height: 60vh; }
   .responsive-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
   .responsive-table th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; color: var(--text); }
   .responsive-table td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }
@@ -72,6 +72,7 @@
   .nowrap { white-space: nowrap; }
   .action-cell { white-space: nowrap; }
   @media (max-width: 640px) {
+    .table-scroll { max-height: 40vh; }
     .responsive-table { font-size: 0.7rem; }
     .responsive-table th,
     .responsive-table td { padding: 0.3rem 0.4rem; }

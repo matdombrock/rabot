@@ -2,8 +2,16 @@
   import { createEventDispatcher } from 'svelte';
   const dispatch = createEventDispatcher();
   import UserSearchBox from './UserSearchBox.svelte';
+  import AvatarPopup from './AvatarPopup.svelte';
+
+  let avatarPopup = { show: false, url: '', name: '' };
+
+  function showAvatar(url, name) {
+    avatarPopup = { show: true, url, name: name || '' };
+  }
 
   export let guildId = '';
+  export let authorFilter = '';
 
   let channels = [];
   let channelId = '';
@@ -478,6 +486,15 @@ ${messagesHtml}
     hasEveryone = false;
     showDeleted = true;
     deletedOnly = false;
+    doSearch();
+  }
+
+  // When authorFilter is set externally (from User Scan), apply it and search
+  $: if (authorFilter && guildId) {
+    authorId = authorFilter;
+    // Auto-select "All Channels" if none selected
+    if (!channelId) channelId = '_all';
+    if (channelId) doSearch();
   }
 
   $: if (guildId) { loadChannels(); loadMembers(); }
@@ -552,7 +569,7 @@ ${messagesHtml}
     <div class="msg">
       <div class="msg-left">
         {#if msg.avatar_url}
-          <img src={msg.avatar_url} alt="" class="msg-avatar clickable" on:click={() => dispatch('analyzeUser', msg.author_id)} />
+          <img src={msg.avatar_url} alt="" class="msg-avatar clickable" on:click={() => showAvatar(msg.avatar_url, msg.username)} />
         {:else}
           <div class="msg-avatar-placeholder clickable" on:click={() => dispatch('analyzeUser', msg.author_id)}></div>
         {/if}
@@ -585,6 +602,8 @@ ${messagesHtml}
     </div>
   {/if}
 </div>
+
+<AvatarPopup show={avatarPopup.show} url={avatarPopup.url} name={avatarPopup.name} />
 
 <style>
   .search-row { gap: 0.4rem; }
@@ -623,7 +642,7 @@ ${messagesHtml}
   .filter-label input[type="checkbox"] { margin: 0; }
   button.active { background: var(--primary); }
   .msg-list {
-    max-height: 70vh;
+    max-height: 60vh;
     overflow-y: auto;
     border-radius: 4px;
     background: var(--background);
@@ -672,5 +691,6 @@ ${messagesHtml}
     .msg-actions { margin-left: 0; }
     .filter-label { font-size: 0.75rem; }
     .filters-row { gap: 0.25rem; }
+    .msg-list { max-height: 40vh; }
   }
 </style>

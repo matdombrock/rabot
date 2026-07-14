@@ -1,6 +1,13 @@
 <script>
   import { createEventDispatcher } from 'svelte';
   import UserSearchBox from './UserSearchBox.svelte';
+  import AvatarPopup from './AvatarPopup.svelte';
+
+  let avatarPopup = { show: false, url: '', name: '' };
+
+  function showAvatar(url, name) {
+    avatarPopup = { show: true, url, name: name || '' };
+  }
 
   const dispatch = createEventDispatcher();
 
@@ -139,6 +146,10 @@
     dispatch('analyzeUser', userId);
   }
 
+  function viewMessages(userId) {
+    dispatch('viewMessages', userId);
+  }
+
   $: if (csv) {
     const lines = csv.split('\n').filter(l => l.trim());
     if (lines.length > 1) {
@@ -204,18 +215,27 @@
       <thead>
         <tr>
           {#each headers as h, i}
-            <th class:sort-asc={i === sortCol && sortAsc} class:sort-desc={i === sortCol && !sortAsc} on:click={() => setSort(i)}>{h}</th>
+            {#if h !== 'ID'}
+              <th class:sort-asc={i === sortCol && sortAsc} class:sort-desc={i === sortCol && !sortAsc} on:click={() => setSort(i)}>{h}</th>
+            {/if}
           {/each}
+          <th>ID</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody>
         {#each rows as row, ri}
           <tr>
-            {#each row as cell}
-              <td>{#if cell.startsWith('https://cdn.discordapp.com/')}<img src={cell} alt="" class="avatar" />{:else}{cell}{/if}</td>
+            {#each row as cell, ci}
+              {#if ci !== 0}
+                <td>{#if cell.startsWith('https://cdn.discordapp.com/')}<img src={cell} alt="" class="avatar clickable" on:click={() => showAvatar(cell, row[2])} />{:else}{cell}{/if}</td>
+              {/if}
             {/each}
-            <td><button class="btn-sm" on:click={() => analyzeUser(row[0])}>Analyze</button></td>
+            <td style="font-family:monospace;font-size:0.75rem">{row[0]}</td>
+            <td class="action-cell">
+              <button class="btn-sm" on:click={() => analyzeUser(row[0])}>Scan</button>
+              <button class="btn-sm" on:click={() => viewMessages(row[0])}>Messages</button>
+            </td>
           </tr>
         {/each}
       </tbody>
@@ -224,6 +244,8 @@
     <p style="color:var(--text-muted)">No data.</p>
   {/if}
 </div>
+
+<AvatarPopup show={avatarPopup.show} url={avatarPopup.url} name={avatarPopup.name} />
 
 <style>
   .guild-stats-bar {
@@ -252,7 +274,7 @@
     opacity: 0.6;
     margin-left: auto;
   }
-  .table-scroll { margin-top: 1rem; max-height: 70vh; }
+  .table-scroll { margin-top: 1rem; max-height: 60vh; }
   .responsive-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
   .responsive-table th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; cursor: pointer; user-select: none; color: var(--text); }
   .responsive-table th:hover { filter: brightness(1.2); }
@@ -280,6 +302,7 @@
     background: var(--primary); color: var(--text-bright); cursor: pointer;
   }
   @media (max-width: 640px) {
+    .table-scroll { max-height: 40vh; }
     .responsive-table { font-size: 0.7rem; }
     .responsive-table th,
     .responsive-table td { padding: 0.3rem 0.4rem; }

@@ -84,6 +84,7 @@
 </script>
 
 <div class="user-search-box" class:has-value={!!value}>
+  <i class="fa-solid fa-user search-icon"></i>
   <input
     type="text"
     {placeholder}
@@ -116,10 +117,20 @@
 <style>
   .user-search-box {
     position: relative;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+  }
+  .search-icon {
+    position: absolute;
+    left: 0.45rem;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    opacity: 0.5;
+    z-index: 1;
+    pointer-events: none;
   }
   .user-search-box input {
-    padding: 0.25rem 0.5rem;
+    padding: 0.25rem 0.5rem 0.25rem 1.5rem;
     font-size: 0.8rem;
     min-height: unset;
     width: 150px;

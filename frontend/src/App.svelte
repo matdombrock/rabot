@@ -12,6 +12,7 @@
   import Analytics from './lib/Analytics.svelte'
   import Settings from './lib/Settings.svelte'
   import ModLog from './lib/ModLog.svelte'
+  import AvatarPopup from './lib/AvatarPopup.svelte'
 
   const STORAGE_KEY = 'dbot-last-guild-id';
   const ORDER_KEY = 'dbot-pane-order';
@@ -21,7 +22,7 @@
   // Pane definitions — name must be unique and stable for localStorage keys
   const paneDefs = [
     { key: 'bot-status', title: 'Bot Status', description: 'Bot tag, Node version, uptime, WS latency, and ping', icon: 'fa-robot', component: BotStatus },
-    { key: 'user-analysis', title: 'User Analysis', description: 'Search, view, and manage per-user analyses', icon: 'fa-magnifying-glass', component: UserAnalysis },
+    { key: 'user-analysis', title: 'User Scan', description: 'Search, view, and manage per-user scans', icon: 'fa-magnifying-glass', component: UserAnalysis },
     { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns and filters', icon: 'fa-users', component: QuickReport, props: {} },
     { key: 'say', title: 'Say', description: 'Send messages to a channel with send history', icon: 'fa-comment', component: Say },
     { key: 'image-filter', title: 'Image Filter', description: 'Manage SHA256 checksum watchlist and view moderation log', icon: 'fa-image', component: ImageFilter },
@@ -40,6 +41,13 @@
   let guildId = '';
   let guilds = [];
   let analyzeUserId = '';
+  let scanKey = 0;
+  let messagesUserId = '';
+  let avatarPopup = { show: false, url: '', name: '' };
+
+  function showAvatar(url, name) {
+    avatarPopup = { show: true, url, name: name || '' };
+  }
   let ready = false;
   let paneSearch = '';
 
@@ -61,6 +69,23 @@
 
   function onAnalyzeUser(id) {
     analyzeUserId = id;
+    scanKey++;
+  }
+
+  function onViewMessages(userId) {
+    // Focus messages pane and set author filter — will use bind:authorFilter on Messages
+    paneCollapsed = { ...paneCollapsed, messages: false };
+    saveState();
+    messagesUserId = userId;
+    setTimeout(() => {
+      const el = document.querySelector('.pane-content [data-pane="messages"]');
+      if (el) {
+        const header = document.querySelector('.sticky-header');
+        const offset = header ? header.getBoundingClientRect().height + 8 : 0;
+        const top = el.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    }, 100);
   }
 
   function focusSettings() {
@@ -216,7 +241,7 @@
 
 <header class="sticky-header">
   <div class="header-top">
-    <h1>Bot Control Panel</h1>
+    <h1><img src="/avatar.png" alt="" class="header-logo" /> Bot Control Panel</h1>
     <button class="header-settings-btn" on:click={focusSettings} title="Settings">
       <i class="fa-solid fa-gear"></i>
     </button>
@@ -286,7 +311,7 @@
           collapsedState={paneCollapsed[pane.key]}
           on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
         >
-          <QuickReport {guildId} on:analyzeUser={(e) => onAnalyzeUser(e.detail)} />
+          <QuickReport {guildId} on:analyzeUser={(e) => onAnalyzeUser(e.detail)} on:viewMessages={(e) => onViewMessages(e.detail)} />
         </Card>
       {:else if pane.key === 'user-analysis'}
         <Card
@@ -294,22 +319,26 @@
           icon={pane.icon}
           description={dashboardSettings.showTips !== false ? pane.description : ''}
           expanded={!!analyzeUserId}
+          forceOpen={scanKey}
           collapseAll={!!paneSearch}
           collapsedState={paneCollapsed[pane.key]}
           on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
         >
-          <UserAnalysis {guildId} analyzeUserId={analyzeUserId} />
+          <UserAnalysis {guildId} analyzeUserId={analyzeUserId} scanKey={scanKey} on:viewMessages={(e) => onViewMessages(e.detail)} />
         </Card>
       {:else if pane.key === 'messages'}
         <Card
           title={pane.title}
           icon={pane.icon}
           description={pane.description}
+          forceOpen={messagesUserId ? 1 : 0}
           collapseAll={!!paneSearch}
           collapsedState={paneCollapsed[pane.key]}
           on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
         >
-          <Messages {guildId} on:analyzeUser={(e) => onAnalyzeUser(e.detail)} />
+          <div data-pane="messages">
+            <Messages {guildId} authorFilter={messagesUserId} on:analyzeUser={(e) => onAnalyzeUser(e.detail)} />
+          </div>
         </Card>
       {:else if pane.key === 'settings'}
         <Card
@@ -341,6 +370,8 @@
   </div>
 {/each}
 
+<AvatarPopup show={avatarPopup.show} url={avatarPopup.url} name={avatarPopup.name} />
+
 <style>
   .sticky-header {
     position: sticky;
@@ -359,6 +390,17 @@
   }
   .header-top h1 {
     margin-bottom: 0;
+    font-size: 1.2rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .header-logo {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    object-fit: cover;
   }
   .header-settings-btn {
     background: none;

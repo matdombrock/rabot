@@ -89,6 +89,9 @@
 
 <style>
   .table-scroll { margin-top: 0.5rem; max-height: 50vh; }
+  @media (max-width: 640px) {
+    .table-scroll { max-height: 35vh; }
+  }
   .responsive-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
   .responsive-table th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; color: var(--text); }
   .responsive-table td { padding: 0.4rem 0.75rem; border-top: 1px solid var(--surface-alt); white-space: nowrap; }

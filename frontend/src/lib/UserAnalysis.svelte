@@ -2,17 +2,26 @@
   import { tick } from 'svelte';
   import { createEventDispatcher } from 'svelte';
   import UserSearchBox from './UserSearchBox.svelte';
+  import AvatarPopup from './AvatarPopup.svelte';
+
+  let avatarPopup = { show: false, url: '', name: '' };
+
+  function showAvatar(url, name) {
+    avatarPopup = { show: true, url, name: name || '' };
+  }
 
   const dispatch = createEventDispatcher();
 
   export let guildId = '';
   export let analyzeUserId = '';
+  export let scanKey = 0;
 
   let analysis = null;
   let analysisLoading = false;
   let analysisError = '';
   let analysisHistory = [];
   let viewingPastId = null;
+  let pastCollapsed = true;
   let searchUsers = [];
 
   // Expose analyzeUser so parent can call it
@@ -27,9 +36,14 @@
       analysis = await r.json();
       loadHistory();
       await tick();
-      // Scroll this card into view
+      // Scroll this card into view with offset for sticky header
       const el = document.querySelector('.analysis-pane');
-      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      if (el) {
+        const header = document.querySelector('.sticky-header');
+        const offset = header ? header.getBoundingClientRect().height + 8 : 0;
+        const top = el.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
     } catch (err) {
       analysisError = err.message;
     } finally {
@@ -93,6 +107,10 @@
     }
   }
 
+  function viewMessages(userId) {
+    dispatch('viewMessages', userId);
+  }
+
   function closeAnalysis() {
     analysis = null;
     analysisLoading = false;
@@ -126,14 +144,17 @@
   }
 
   async function deletePast(id) {
-    if (!confirm('Delete this analysis?')) return;
+    if (!confirm('Delete this scan?')) return;
     await fetch(`/api/guild/${guildId}/history/${id}`, { method: 'DELETE' });
     if (viewingPastId === id) closeAnalysis();
     loadHistory();
   }
 
   $: if (guildId) loadHistory();
-  $: if (analyzeUserId) analyzeUser(analyzeUserId);
+  // Trigger scan when scanKey changes (handles re-selecting same or different user)
+  $: if (analyzeUserId && scanKey) {
+    analyzeUser(analyzeUserId);
+  }
 
   // Load members for UserSearchBox when guild changes
   $: if (guildId) {
@@ -161,7 +182,7 @@
   </div>
 
   {#if !guildId}
-    <p style="color:var(--text-muted)">Select a guild to analyze users.</p>
+    <p style="color:var(--text-muted)">Select a guild to scan users.</p>
   {:else if analysisLoading}
     <p style="color:var(--text-muted)">Loading...</p>
   {:else if analysisError}
@@ -169,7 +190,7 @@
   {:else if analysis}
     <div class="analysis-body">
       {#if analysis.avatarUrl}
-        <img src={analysis.avatarUrl} alt="" class="analysis-avatar" />
+        <img src={analysis.avatarUrl} alt="" class="analysis-avatar clickable" on:click={() => showAvatar(analysis.avatarUrl, analysis.username)} />
       {/if}
       <div class="table-scroll" style="flex:1">
         <table class="analysis-table">
@@ -192,47 +213,61 @@
       </div>
     </div>
     <div class="analysis-actions">
+      <button class="btn-sm" on:click={() => viewMessages(analysis.userId)}><i class="fa-solid fa-message"></i> View Messages</button>
       <button class="btn-sm" on:click={downloadAnalysis}>Download CSV</button>
       <button class="btn-sm" on:click={closeAnalysis}>Close</button>
     </div>
   {:else}
-    <p style="color:var(--text-muted)">Search for a user above to view their analysis.</p>
+    <p style="color:var(--text-muted)">Search for a user above to scan them.</p>
   {/if}
 
   {#if analysisHistory.length > 0}
-    <h4 style="margin-top:0.75rem;margin-bottom:0.5rem;font-size:0.85rem;color:var(--text-muted)">Past Analyses</h4>
-    <div class="table-scroll">
-      <table class="responsive-table">
-        <thead>
-          <tr>
-            <th style="text-align:left;color:var(--text-muted);font-weight:normal">User</th>
-            <th style="text-align:left;color:var(--text-muted);font-weight:normal">Generated</th>
-            <th style="text-align:left;color:var(--text-muted);font-weight:normal">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each analysisHistory as r}
+    <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
+    <h4 class="past-toggle" on:click={() => pastCollapsed = !pastCollapsed}>
+      <span>Past Scans</span>
+      <span class="collapse-icon">{pastCollapsed ? '▾' : '▴'}</span>
+    </h4>
+    <div class:collapsed={pastCollapsed}>
+      <div class="table-scroll">
+        <table class="responsive-table">
+          <thead>
             <tr>
-              <td>{r.username || '—'}</td>
-              <td class="nowrap">{new Date(r.generated).toLocaleString()}</td>
-              <td class="action-cell">
-                <button class="btn-sm" on:click={() => viewPast(r.id)}>View</button>
-                <button class="btn-sm" on:click={() => downloadPast(r.id)}>Download</button>
-                <button class="btn-sm btn-danger" on:click={() => deletePast(r.id)}>Delete</button>
-              </td>
+              <th style="text-align:left;color:var(--text-muted);font-weight:normal">User</th>
+              <th style="text-align:left;color:var(--text-muted);font-weight:normal">Generated</th>
+              <th style="text-align:left;color:var(--text-muted);font-weight:normal">Actions</th>
             </tr>
-          {/each}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {#each analysisHistory as r}
+              <tr>
+                <td>{r.username || '—'}</td>
+                <td class="nowrap">{new Date(r.generated).toLocaleString()}</td>
+                <td class="action-cell">
+                  <button class="btn-sm" on:click={() => viewPast(r.id)}>View</button>
+                  <button class="btn-sm" on:click={() => downloadPast(r.id)}>Download</button>
+                  <button class="btn-sm btn-danger" on:click={() => deletePast(r.id)}>Delete</button>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
     </div>
   {/if}
 </div>
+
+<AvatarPopup show={avatarPopup.show} url={avatarPopup.url} name={avatarPopup.name} />
 
 <style>
   .analysis-pane {
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+  }
+  .table-scroll {
+    max-height: 400px;
+    overflow: auto;
+    border-radius: 4px;
   }
   .analysis-search .user-search-box { width: 100%; }
   .analysis-search .user-search-box input { width: 100%; }
@@ -241,10 +276,28 @@
     gap: 1rem;
     align-items: flex-start;
   }
-  .analysis-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; }
+  .analysis-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; cursor: pointer; }
   .analysis-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
   .analysis-table td { padding: 0.3rem 0.5rem; border: none; }
   .analysis-table td:first-child { color: var(--text-muted); width: 160px; }
+  .past-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.75rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+    padding: 0.25rem 0;
+  }
+  .past-toggle:hover { opacity: 0.8; }
+  .collapsed { display: none; }
+  .collapse-icon {
+    font-size: 0.8rem;
+  }
   .analysis-actions {
     display: flex;
     gap: 0.5rem;
@@ -256,6 +309,7 @@
   .nowrap { white-space: nowrap; }
   .action-cell { white-space: nowrap; }
   @media (max-width: 640px) {
+    .table-scroll { max-height: 300px; }
     .analysis-body { flex-direction: column; align-items: center; }
     .analysis-avatar { width: 48px; height: 48px; }
     .analysis-table td:first-child { width: 110px; }
