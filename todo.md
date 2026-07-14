@@ -1,5 +1,0 @@
-- favicon
-- font awesome icons for headers 
-- click to show big avatar
-- user list id to last col
-- user analysis -> user scan
