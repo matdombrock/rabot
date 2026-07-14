@@ -17,6 +17,7 @@
   import ModLog from './lib/ModLog.svelte'
   import AvatarPopup from './lib/AvatarPopup.svelte'
   import Login from './lib/Login.svelte'
+  import ImageDescribe from './lib/ImageDescribe.svelte'
 
   const STORAGE_KEY = 'rb-zero-last-guild-id';
   const ORDER_KEY = 'rb-zero-pane-order';
@@ -26,6 +27,7 @@
   // Pane definitions — name must be unique and stable for localStorage keys
   const paneDefs = [
     { key: 'ai-chat', title: 'AI Chat', description: 'Let users chat with AI by mentioning the bot', icon: 'fa-comment-dots', component: AiChat },
+    { key: 'ai-image-describe', title: 'AI Image Describe', description: 'Automatically describe uploaded images using AI for accessibility', icon: 'fa-image', component: ImageDescribe },
     { key: 'bot-status', title: 'Bot Status', description: 'Bot tag, Node version, uptime, WS latency, and ping', icon: 'fa-robot', component: BotStatus },
     { key: 'user-analysis', title: 'User Scan', description: 'Search, view, and manage per-user scans', icon: 'fa-magnifying-glass', component: UserAnalysis },
     { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns and filters', icon: 'fa-users', component: QuickReport, props: {} },

@@ -9,7 +9,7 @@ import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SYSTEM_PROMPT = readFileSync(join(__dirname, "../reports/prompts/ai-chat-prompt.txt"), "utf-8");
-const { truncate, maxTokens, temperature } = config.aiScan;
+const { truncate, maxTokens, temperature } = config.llmText;
 
 const messageCreateAiChat: Event = {
   name: Events.MessageCreate,

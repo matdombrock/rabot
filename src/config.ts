@@ -16,10 +16,13 @@ interface Config {
     apiKey: string;
     model: string;
   };
-  aiScan: {
+  llmText: {
     truncate: number;
     maxTokens: number;
     temperature: number;
+  };
+  imageDescribe: {
+    model: string;
   };
 }
 

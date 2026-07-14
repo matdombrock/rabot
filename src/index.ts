@@ -21,6 +21,7 @@ async function main() {
     import("./events/messageDelete.js"),
     import("./events/guildAuditLogEntryCreate.js"),
     import("./events/messageCreateAiChat.js"),
+    import("./events/messageCreateImageDescribe.js"),
   ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

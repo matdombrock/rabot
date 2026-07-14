@@ -23,9 +23,9 @@ All configuration is in `src/config.json`. See `src/config.example.json` for the
 | `port` | No | Web panel port (default: `3000`) |
 | `openrouter.apiKey` | No | OpenRouter API key (required for AI features) |
 | `openrouter.model` | No | LLM model ID (default: `deepseek/deepseek-v4-flash`) |
-| `aiScan.truncate` | No | Max chars for message context (default: `8000`) |
-| `aiScan.maxTokens` | No | Max tokens in AI response (default: `1000`) |
-| `aiScan.temperature` | No | AI temperature (default: `0.3`) |
+| `llmText.truncate` | No | Max chars for message context (default: `8000`) |
+| `llmText.maxTokens` | No | Max tokens in AI response (default: `1000`) |
+| `llmText.temperature` | No | AI temperature (default: `0.3`) |
 
 ### Required Intents
 

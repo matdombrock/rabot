@@ -594,7 +594,7 @@ export function createWebServer(client: Client) {
       const db = getGuildDb(req.params.guildId);
       const enabledRow = db.prepare("SELECT value FROM config WHERE key = 'aichat_enabled'").get() as { value: string } | undefined;
       const newVal = enabledRow?.value === "true" ? "false" : "true";
-      db.prepare("UPDATE config SET value = ? WHERE key = 'aichat_enabled'").run(newVal);
+      db.prepare("INSERT OR REPLACE INTO config (key, value) VALUES ('aichat_enabled', ?)").run(newVal);
       res.json({ enabled: newVal === "true" });
     } catch (err) {
       console.error("AI chat toggle failed:", err);
@@ -647,6 +647,32 @@ export function createWebServer(client: Client) {
     } catch (err) {
       console.error("AI chat log delete failed:", err);
       res.status(500).json({ error: "Failed to delete log" });
+    }
+  });
+
+  // ── AI Image Describe ──
+
+  app.get("/api/guild/:guildId/ai-image-describe", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const enabledRow = db.prepare("SELECT value FROM config WHERE key = 'aiimagedescribe_enabled'").get() as { value: string } | undefined;
+      res.json({ enabled: enabledRow?.value === "true" });
+    } catch (err) {
+      console.error("AI image describe fetch failed:", err);
+      res.status(500).json({ error: "Failed to fetch AI image describe data" });
+    }
+  });
+
+  app.put("/api/guild/:guildId/ai-image-describe/toggle", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const enabledRow = db.prepare("SELECT value FROM config WHERE key = 'aiimagedescribe_enabled'").get() as { value: string } | undefined;
+      const newVal = enabledRow?.value === "true" ? "false" : "true";
+      db.prepare("INSERT OR REPLACE INTO config (key, value) VALUES ('aiimagedescribe_enabled', ?)").run(newVal);
+      res.json({ enabled: newVal === "true" });
+    } catch (err) {
+      console.error("AI image describe toggle failed:", err);
+      res.status(500).json({ error: "Failed to toggle AI image describe" });
     }
   });
 

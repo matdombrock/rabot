@@ -127,6 +127,7 @@ frontend/
         ├── ChannelSummary.svelte    # AI-powered channel summary with caching
         ├── GuildScan.svelte         # AI guild-wide malicious user scan
         ├── AiChat.svelte            # AI chat toggle and history
+        ├── ImageDescribe.svelte     # AI image describe toggle per guild
         ├── Settings.svelte          # Dashboard/bot settings (localStorage + DB)
         ├── ModLog.svelte            # Action log for mod actions and audit events
         ├── Messages.svelte          # Per-channel message browser with pagination, filters, search, CSV export, HTML export
@@ -156,8 +157,9 @@ frontend/
 - **AI Scan** — user scan with 5 structured scores (risk, nice, weird, spammer, AI/LLM). Auto-loads cached results. Force re-scan button.
 - **AI Channel Summary** — auto-loads cached summary on channel select. Force re-summarize button. Shows channel name, message count, fresh/cached badge.
 - **AI Guild Scan** — scans all channels for suspicious users. Caching with new-message detection.
-- **AI Chat** — toggle to enable/disable. When enabled, mentioning the bot triggers an AI response using recent channel context. Responses prefixed with `**LLM OUTPUT:**`. 30-second timeout. Chat history visible in pane with delete (removes from Discord too).
-- **Config via `src/config.json`** — port, sessionSecret, Discord credentials, OpenRouter API key/model, AI scan truncation/temperature settings. `.env` no longer used.
+- **AI Chat** — toggle to enable/disable. When enabled, mentioning the bot triggers an AI response using recent channel context. Responses prefixed with `**LLM OUTPUT:**`. 30-second timeout. Chat history visible in pane with delete (removes from Discord too). Per-guild prompt editor (max 1024 chars, stored as `aichat_prompt` in config table, "Reset to default" button). When disabled, bot replies with "Hi, I'm rb-zero. Created by Replicat. My 'brain' is currently disabled. Beep boop."
+- **AI Image Describe** — toggle to enable/disable per guild (`aiimagedescribe_enabled` in config table). When enabled, any image uploaded to the server triggers an AI vision API call to describe the image. Uses `config.imageDescribe.model` (separate from chat model). Replies with "This image looks like: <description>" followed by the accessibility disclaimer. Limits to 4 images per message, 30s timeout.
+- **Config via `src/config.json`** — port, sessionSecret, Discord credentials, OpenRouter API key/model (`chat`, `scan`, `imageDescribe`), AI scan truncation/temperature settings. `.env` no longer used.
 - **Database** — stores AI scans, channel summaries, guild scans, and AI chat logs in the `reports` and `ai_chat_log` tables. Old env files removed.
 
 ## Auth

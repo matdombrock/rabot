@@ -9,7 +9,7 @@ import crypto from "node:crypto";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const SYSTEM_PROMPT = readFileSync(join(__dirname, "prompts/ai-guild-scan-prompt.txt"), "utf-8");
 
-const { truncate, maxTokens, temperature } = config.aiScan;
+const { truncate, maxTokens, temperature } = config.llmText;
 
 export interface GuildScanResult {
   summary: string;
