@@ -28,7 +28,7 @@
     { key: 'image-filter', title: 'Image Filter', description: 'Manage SHA256 checksum watchlist and view moderation log', icon: 'fa-image', component: ImageFilter },
     { key: 'analytics', title: 'Analytics', description: 'Server stats, user activity, and message trends with charts', icon: 'fa-chart-simple', component: Analytics },
     { key: 'text-filter', title: 'Text Filter', description: 'Manage text pattern filters with warn/kick/ban actions', icon: 'fa-font', component: TextFilter },
-    { key: 'recent-reports', title: 'Recent Reports', description: 'Browse, download, and delete generated reports and analyses', icon: 'fa-clock-rotate-left', component: RecentReports },
+    { key: 'recent-reports', title: 'Historical Data', description: 'Browse, download, and delete generated scans', icon: 'fa-clock-rotate-left', component: RecentReports },
     { key: 'messages', title: 'Messages', description: 'Browse per-channel message history with search, filters, and export', icon: 'fa-message', component: Messages },
     { key: 'settings', title: 'Settings', description: 'Configure dashboard and bot settings', icon: 'fa-gear', component: Settings },
     { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', icon: 'fa-shield', component: ModLog },
