@@ -431,6 +431,11 @@ export function createWebServer(client: Client) {
     try {
       const { generateAiScan } = await import("../reports/ai-scan.js");
       const result = await generateAiScan(guild, req.params.userId);
+      // Save to reports database
+      const db = getGuildDb(req.params.guildId);
+      db.prepare("INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv, ai_scan, risk_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)").run(
+        crypto.randomUUID(), guild.name, "ai-scan", new Date().toISOString(), 0, result.username, "", result.analysis, result.riskScore
+      );
       res.json(result);
     } catch (err) {
       console.error("AI scan failed:", err);

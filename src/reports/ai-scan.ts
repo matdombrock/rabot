@@ -14,6 +14,7 @@ export interface AiScanResult {
   userId: string;
   username: string;
   analysis: string;
+  riskScore: number | null;
   error?: string;
 }
 
@@ -23,6 +24,7 @@ export async function generateAiScan(guild: Guild, userId: string): Promise<AiSc
       userId,
       username: "",
       analysis: "",
+      riskScore: null,
       error: "OpenRouter API key not configured. Add it to src/config.json",
     };
   }
@@ -97,14 +99,22 @@ export async function generateAiScan(guild: Guild, userId: string): Promise<AiSc
     }
 
     const data = await response.json() as { choices: { message: { content: string } }[] };
-    const analysis = data.choices?.[0]?.message?.content ?? "(no response)";
+    const fullAnalysis = data.choices?.[0]?.message?.content ?? "(no response)";
 
-    return { userId, username, analysis };
+    // Parse risk score from the last line
+    const scoreMatch = fullAnalysis.match(/Risk Score:\s*(\d+)\s*\/\s*10/i);
+    const riskScore = scoreMatch ? Math.min(Math.max(parseInt(scoreMatch[1], 10), 1), 10) : null;
+
+    // Remove the score line from the analysis text
+    const analysis = fullAnalysis.replace(/\n?Risk Score:\s*\d+\s*\/\s*10\s*/i, '').trim();
+
+    return { userId, username, analysis, riskScore };
   } catch (err) {
     return {
       userId,
       username,
       analysis: "",
+      riskScore: null,
       error: err instanceof Error ? err.message : "Unknown error during AI scan",
     };
   }

@@ -3,6 +3,7 @@
   import { createEventDispatcher } from 'svelte';
   import UserSearchBox from './UserSearchBox.svelte';
   import AvatarPopup from './AvatarPopup.svelte';
+  import { marked } from 'marked';
 
   let avatarPopup = { show: false, url: '', name: '' };
 
@@ -25,7 +26,23 @@
   let searchUsers = [];
   let aiScanResult = null;
   let aiScanLoading = false;
+  let aiScanHtml = '';
+
+  function renderMarkdown(text) {
+    if (!text) return '';
+    try {
+      return marked(text, { breaks: true, gfm: true });
+    } catch {
+      return text.replace(/\n/g, '<br>');
+    }
+  }
   let aiScanError = '';
+
+  function clearAiScan() {
+    aiScanResult = null;
+    aiScanError = '';
+    aiScanHtml = '';
+  }
 
   // Expose analyzeUser so parent can call it
   export async function analyzeUser(userId) {
@@ -33,6 +50,7 @@
     analysisLoading = true;
     analysisError = '';
     analysis = null;
+    clearAiScan();
     try {
       const r = await fetch(`/api/guild/${guildId}/user-analysis/${userId}`);
       if (!r.ok) throw new Error(await r.text());
@@ -60,7 +78,7 @@
       const r = await fetch(`/api/guild/${guildId}/history`);
       if (!r.ok) return;
       const all = await r.json();
-      analysisHistory = all.filter(r => r.type === 'analysis').reverse();
+      analysisHistory = all.filter(r => r.type === 'analysis' || r.type === 'ai-scan').reverse();
     } catch {}
   }
 
@@ -102,7 +120,30 @@
       const r = await fetch(`/api/guild/${guildId}/history/${id}`);
       if (!r.ok) throw new Error(await r.text());
       const record = await r.json();
+      if (record.type === 'ai-scan') {
+      analysis = {
+        username: record.username || '',
+        displayName: '',
+        userId: record.username || '',
+        avatarUrl: '',
+        discordJoinDate: '',
+        guildJoinDate: null,
+        daysInServer: '',
+        accountAgeDays: '',
+        topRole: '',
+        roles: [],
+        isBoosting: false,
+        isBot: false,
+        totalMessages: 0,
+        lastPostDate: null,
+        csv: '',
+        generated: record.generated || '',
+      };
+      aiScanResult = { analysis: record.ai_scan || '', riskScore: record.risk_score, userId: record.username };
+      aiScanHtml = renderMarkdown(record.ai_scan || '');
+    } else {
       analysis = parseAnalysisCsv(record.csv);
+    }
     } catch (err) {
       analysisError = err.message;
     } finally {
@@ -125,6 +166,7 @@
       const data = await r.json();
       if (data.error) throw new Error(data.error);
       aiScanResult = data;
+      aiScanHtml = renderMarkdown(data.analysis);
     } catch (err) {
       aiScanError = err.message;
     } finally {
@@ -154,12 +196,14 @@
   async function downloadPast(id) {
     const r = await fetch(`/api/guild/${guildId}/history/${id}`);
     const data = await r.json();
-    const blob = new Blob([data.csv], { type: 'text/csv' });
+    const content = data.type === 'ai-scan' ? (data.ai_scan || '') : (data.csv || '');
+    const ext = data.type === 'ai-scan' ? 'txt' : 'csv';
+    const blob = new Blob([content], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     const ts = data.generated.replace(/[:.]/g, '-').slice(0, 19);
-    a.download = `analysis-${ts}.csv`;
+    a.download = `scan-${ts}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -247,10 +291,17 @@
         <p style="color:var(--danger);font-size:0.85rem;margin-top:0.5rem">Error: {aiScanError}</p>
       {/if}
       {#if aiScanResult}
+        <div class="ai-result-header">
+          <div class="ai-score">
+            <span class="ai-score-label">Risk Score</span>
+            <span class="ai-score-value" class:score-low={aiScanResult.riskScore !== null && aiScanResult.riskScore <= 3} class:score-mid={aiScanResult.riskScore !== null && aiScanResult.riskScore > 3 && aiScanResult.riskScore <= 6} class:score-high={aiScanResult.riskScore !== null && aiScanResult.riskScore > 6}>
+              {aiScanResult.riskScore !== null ? `${aiScanResult.riskScore}/10` : 'N/A'}
+            </span>
+          </div>
+          <button class="btn-sm" on:click={() => navigator.clipboard.writeText(aiScanResult.analysis)}><i class="fa-solid fa-copy"></i> Copy</button>
+        </div>
         <div class="ai-result">
-          {#each aiScanResult.analysis.split('\n') as line}
-            <p>{line}</p>
-          {/each}
+          {@html aiScanHtml}
         </div>
       {/if}
     </div>
@@ -269,6 +320,7 @@
         <table class="responsive-table">
           <thead>
             <tr>
+              <th style="text-align:left;color:var(--text-muted);font-weight:normal">Type</th>
               <th style="text-align:left;color:var(--text-muted);font-weight:normal">User</th>
               <th style="text-align:left;color:var(--text-muted);font-weight:normal">Generated</th>
               <th style="text-align:left;color:var(--text-muted);font-weight:normal">Actions</th>
@@ -277,6 +329,7 @@
           <tbody>
             {#each analysisHistory as r}
               <tr>
+                <td><span class="type-badge" class:badge-ai={r.type === 'ai-scan'}>{r.type === 'ai-scan' ? 'AI' : 'Scan'}</span></td>
                 <td>{r.username || '—'}</td>
                 <td class="nowrap">{new Date(r.generated).toLocaleString()}</td>
                 <td class="action-cell">
@@ -335,6 +388,20 @@
   .collapse-icon {
     font-size: 0.8rem;
   }
+  .type-badge {
+    display: inline-block;
+    padding: 0.05rem 0.35rem;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    background: var(--surface-alt);
+    color: var(--text-muted);
+  }
+  .type-badge.badge-ai {
+    background: var(--primary);
+    color: var(--text-bright);
+  }
   .analysis-actions {
     display: flex;
     gap: 0.5rem;
@@ -342,18 +409,60 @@
   .ai-section {
     margin-top: 0.5rem;
   }
+  .ai-result-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  .ai-score {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .ai-score-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .ai-score-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+  }
+  .score-low { color: #23a55a; background: #23a55a22; }
+  .score-mid { color: #f0b232; background: #f0b23222; }
+  .score-high { color: #f23f42; background: #f23f4222; }
   .ai-result {
     background: var(--background);
     border: 1px solid var(--surface-alt);
     border-radius: 6px;
     padding: 0.75rem;
-    margin-top: 0.5rem;
+    max-height: 400px;
+    overflow-y: auto;
     font-size: 0.85rem;
-    line-height: 1.5;
-    white-space: pre-wrap;
+    line-height: 1.6;
   }
-  .ai-result p {
-    margin-bottom: 0.25rem;
+  .ai-result :global(p) {
+    margin-bottom: 0.5rem;
+  }
+  .ai-result :global(ul), .ai-result :global(ol) {
+    margin: 0.25rem 0;
+    padding-left: 1.25rem;
+  }
+  .ai-result :global(li) {
+    margin-bottom: 0.15rem;
+  }
+  .ai-result :global(strong) {
+    color: var(--text-bright);
+  }
+  .ai-result :global(code) {
+    background: var(--surface-alt);
+    padding: 0.1rem 0.3rem;
+    border-radius: 3px;
+    font-size: 0.8rem;
   }
   .responsive-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
   .responsive-table th { position: sticky; top: 0; background: var(--surface-alt); text-align: left; padding: 0.5rem 0.75rem; white-space: nowrap; color: var(--text); font-weight: normal; }
