@@ -1,9 +1,18 @@
-import { Events, type Message, AttachmentBuilder } from "discord.js";
+import { Events, type Message } from "discord.js";
+import sharp from "sharp";
 import type { Event } from "../types.js";
 import { getGuildDb } from "../db.js";
 import { config } from "../config.js";
 
-const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp"]);
+async function prepareImageUrl(url: string, isGif: boolean): Promise<string> {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`Failed to fetch image: ${res.status}`);
+
+  const buffer = Buffer.from(await res.arrayBuffer());
+  const pipeline = sharp(buffer, isGif ? { animated: false } : {}).resize(1024, 1024, { fit: "inside" }).jpeg({ quality: 80 });
+  const processed = await pipeline.toBuffer();
+  return `data:image/jpeg;base64,${processed.toString("base64")}`;
+}
 
 const messageCreateImageDescribe: Event = {
   name: Events.MessageCreate,
@@ -29,27 +38,31 @@ const messageCreateImageDescribe: Event = {
     const imageUrlPattern = /https?:\/\/[^\s]+\.(?:png|jpg|jpeg|gif|webp)(?:\?[^\s]*)?/gi;
     const contentUrls = (message.content.match(imageUrlPattern) || []);
 
-    const imageUrls: string[] = [];
+    const imageUrls: { url: string; isGif: boolean }[] = [];
 
     for (const [, att] of imageAttachments) {
-      imageUrls.push(att.url);
+      const isGif = att.contentType === "image/gif" || att.url.includes(".gif");
+      imageUrls.push({ url: att.url, isGif });
     }
     for (const url of contentUrls) {
-      if (!imageUrls.includes(url)) imageUrls.push(url);
+      if (!imageUrls.some(i => i.url === url)) {
+        imageUrls.push({ url, isGif: url.includes(".gif") });
+      }
     }
 
     if (imageUrls.length === 0) return;
 
     // React to acknowledge we're processing
     await message.react("🤖").catch(() => {});
-    await message.react("👁️").catch(() => {});
 
     // Process each image (limit to first 4 to avoid abuse)
     const toProcess = imageUrls.slice(0, 4);
 
-    for (const imageUrl of toProcess) {
+    for (const image of toProcess) {
       try {
-        const timeoutSignal = AbortSignal.timeout(30000);
+        const imageUrl = await prepareImageUrl(image.url, image.isGif);
+
+        const timeoutSignal = AbortSignal.timeout(60000);
         const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
           method: "POST",
           headers: {
@@ -83,12 +96,13 @@ const messageCreateImageDescribe: Event = {
         const data = (await response.json()) as { choices: { message: { content: string } }[] };
         const description = data.choices?.[0]?.message?.content ?? "(no description)";
 
-        const reply = [
-          "This image looks like:",
+        const lines = [
           description,
           "",
-          "*This is an AI driven accessibility feature. Image descriptions may be comically incorrect.*",
-        ].join("\n");
+          "***NOTE: This is an AI driven accessibility feature. Image descriptions may be comically incorrect.***",
+        ];
+        if (image.isGif) lines.push("", "**NOTE: The AI only saw the first frame of this GIF.**");
+        const reply = lines.join("\n");
 
         if (reply.length <= 2000) {
           await message.reply(reply);
@@ -96,7 +110,7 @@ const messageCreateImageDescribe: Event = {
           await message.reply(reply.slice(0, 2000));
         }
       } catch (err) {
-        console.error("Image describe error:", err);
+        console.error("Image describe error:", err, `(model: ${config.imageDescribe.model})`);
         if (err instanceof Error && err.name === "TimeoutError") {
           await message.reply("Image description timed out").catch(() => {});
         }

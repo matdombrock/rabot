@@ -91,7 +91,8 @@ const messageCreateAiChat: Event = {
 
       const data = (await response.json()) as { choices: { message: { content: string } }[] };
       const reply = data.choices?.[0]?.message?.content ?? "(no response)";
-      const prefixed = `**LLM OUTPUT:**\n\n${reply}`;
+      const disclaimer = "\n\n***NOTE: This is an AI driven feature. Responses may be comically incorrect.***";
+      const prefixed = `**LLM OUTPUT:**\n\n${reply}${disclaimer}`;
 
       // Send the actual response as a new message
       let botReply;
