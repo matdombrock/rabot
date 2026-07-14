@@ -131,6 +131,7 @@ export function getGuildDb(guildId: string): DbType {
       value TEXT NOT NULL
     );
     INSERT OR IGNORE INTO config (key, value) VALUES ('action', 'ban');
+    INSERT OR IGNORE INTO config (key, value) VALUES ('aichat_enabled', 'false');
 
     CREATE TABLE IF NOT EXISTS textfilters (
       id TEXT PRIMARY KEY,
@@ -172,6 +173,18 @@ export function getGuildDb(guildId: string): DbType {
 
   // Manual action log for mod actions (message deletions, etc.)
   db.exec(`
+    CREATE TABLE IF NOT EXISTS ai_chat_log (
+      id TEXT PRIMARY KEY,
+      guild_id TEXT NOT NULL,
+      channel_id TEXT NOT NULL,
+      channel_name TEXT NOT NULL DEFAULT '',
+      user_id TEXT NOT NULL,
+      user_name TEXT NOT NULL DEFAULT '',
+      question TEXT NOT NULL,
+      response TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+
     CREATE TABLE IF NOT EXISTS actionlogs (
       id TEXT PRIMARY KEY,
       guild_id TEXT NOT NULL,

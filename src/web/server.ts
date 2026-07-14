@@ -561,6 +561,44 @@ export function createWebServer(client: Client) {
     }
   });
 
+  // ── AI Chat ──
+
+  app.get("/api/guild/:guildId/ai-chat", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const enabledRow = db.prepare("SELECT value FROM config WHERE key = 'aichat_enabled'").get() as { value: string } | undefined;
+      const logs = db.prepare("SELECT * FROM ai_chat_log WHERE guild_id = ? ORDER BY created_at DESC LIMIT 100").all(req.params.guildId);
+      res.json({ enabled: enabledRow?.value === "true", logs });
+    } catch (err) {
+      console.error("AI chat fetch failed:", err);
+      res.status(500).json({ error: "Failed to fetch AI chat data" });
+    }
+  });
+
+  app.put("/api/guild/:guildId/ai-chat/toggle", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const enabledRow = db.prepare("SELECT value FROM config WHERE key = 'aichat_enabled'").get() as { value: string } | undefined;
+      const newVal = enabledRow?.value === "true" ? "false" : "true";
+      db.prepare("UPDATE config SET value = ? WHERE key = 'aichat_enabled'").run(newVal);
+      res.json({ enabled: newVal === "true" });
+    } catch (err) {
+      console.error("AI chat toggle failed:", err);
+      res.status(500).json({ error: "Failed to toggle AI chat" });
+    }
+  });
+
+  app.delete("/api/guild/:guildId/ai-chat/log/:logId", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      db.prepare("DELETE FROM ai_chat_log WHERE id = ?").run(req.params.logId);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("AI chat log delete failed:", err);
+      res.status(500).json({ error: "Failed to delete log" });
+    }
+  });
+
   // ── Image check ──
 
   app.get("/api/guild/:guildId/checksums", async (req, res) => {

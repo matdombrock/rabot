@@ -1,6 +1,7 @@
 <script>
   import { onMount, tick } from 'svelte'
   import Card from './lib/Card.svelte'
+  import AiChat from './lib/AiChat.svelte'
   import BotStatus from './lib/BotStatus.svelte'
   import Say from './lib/Say.svelte'
   import ImageFilter from './lib/ImageFilter.svelte'
@@ -22,6 +23,7 @@
 
   // Pane definitions — name must be unique and stable for localStorage keys
   const paneDefs = [
+    { key: 'ai-chat', title: 'AI Chat', description: 'Let users chat with AI by mentioning the bot', icon: 'fa-comment-dots', component: AiChat },
     { key: 'bot-status', title: 'Bot Status', description: 'Bot tag, Node version, uptime, WS latency, and ping', icon: 'fa-robot', component: BotStatus },
     { key: 'user-analysis', title: 'User Scan', description: 'Search, view, and manage per-user scans', icon: 'fa-magnifying-glass', component: UserAnalysis },
     { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns and filters', icon: 'fa-users', component: QuickReport, props: {} },
