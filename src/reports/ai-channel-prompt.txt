@@ -1,0 +1,8 @@
+You are summarizing recent activity in a Discord text channel. Below are the most recent messages. Provide a concise summary focused on the latest conversations, covering:
+
+1. **What's happening right now** — what the most recent messages are about
+2. **Active participants** — who's talking and what about
+3. **Current topics** — the main subjects being discussed in the latest messages
+4. **Any notable content** — questions, announcements, links, or important items in the recent messages
+
+Keep the focus on the most recent activity. Don't worry about what the channel is generally for — focus on what's being said right now. Use markdown formatting (bold, lists, etc.) for readability.

@@ -372,7 +372,7 @@ export function createWebServer(client: Client) {
   app.get("/api/guild/:guildId/history", async (req, res) => {
     try {
       const db = getGuildDb(req.params.guildId);
-      const rows = db.prepare("SELECT id, guild_name, type, generated, total_members, username FROM reports ORDER BY generated DESC").all();
+      const rows = db.prepare("SELECT id, guild_name, type, generated, total_members, username, message_count, channel_id FROM reports ORDER BY generated DESC").all();
       res.json(rows);
     } catch (err) {
       console.error("History fetch failed:", err);
@@ -431,15 +431,48 @@ export function createWebServer(client: Client) {
     const guild = client.guilds.cache.get(req.params.guildId);
     if (!guild) { res.status(404).json({ error: "Guild not found" }); return; }
     try {
+      const force = req.query.force === "true";
       const { generateAiScan, saveAiScanResult } = await import("../reports/ai-scan.js");
-      const result = await generateAiScan(guild, req.params.userId);
-      if (!result.error) {
+      const result = await generateAiScan(guild, req.params.userId, force);
+      if (!result.error && !result.cached) {
         saveAiScanResult(req.params.guildId, guild.name, result.username, result.analysis, result.riskScore, result.niceScore, result.weirdScore, result.spammerScore, result.aiScore);
       }
       res.json(result);
     } catch (err) {
       console.error("AI scan failed:", err);
       res.status(500).json({ error: "Failed to run AI scan" });
+    }
+  });
+
+  // ── AI channel summary ──
+
+  app.get("/api/guild/:guildId/channel-summary/:channelId", async (req, res) => {
+    const guild = client.guilds.cache.get(req.params.guildId);
+    if (!guild) { res.status(404).json({ error: "Guild not found" }); return; }
+    const force = req.query.force === "true";
+    try {
+      const { getChannelSummary } = await import("../reports/ai-channel-summary.js");
+      const result = await getChannelSummary(guild, req.params.channelId, force);
+      res.json(result);
+    } catch (err) {
+      console.error("Channel summary failed:", err);
+      res.status(500).json({ error: "Failed to generate channel summary" });
+    }
+  });
+
+  // ── AI guild scan ──
+
+  app.get("/api/guild/:guildId/guild-scan", async (req, res) => {
+    const guild = client.guilds.cache.get(req.params.guildId);
+    if (!guild) { res.status(404).json({ error: "Guild not found" }); return; }
+    const force = req.query.force === "true";
+    try {
+      const { generateGuildScan } = await import("../reports/ai-guild-scan.js");
+      const result = await generateGuildScan(guild, force);
+      res.json(result);
+    } catch (err) {
+      console.error("Guild scan failed:", err);
+      res.status(500).json({ error: "Failed to run guild scan" });
     }
   });
 

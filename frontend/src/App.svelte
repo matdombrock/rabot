@@ -7,9 +7,10 @@
   import TextFilter from './lib/TextFilter.svelte'
   import QuickReport from './lib/QuickReport.svelte'
   import UserAnalysis from './lib/UserAnalysis.svelte'
-  import RecentReports from './lib/RecentReports.svelte'
   import Messages from './lib/Messages.svelte'
   import Analytics from './lib/Analytics.svelte'
+  import ChannelSummary from './lib/ChannelSummary.svelte'
+  import GuildScan from './lib/GuildScan.svelte'
   import Settings from './lib/Settings.svelte'
   import ModLog from './lib/ModLog.svelte'
   import AvatarPopup from './lib/AvatarPopup.svelte'
@@ -26,9 +27,10 @@
     { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns and filters', icon: 'fa-users', component: QuickReport, props: {} },
     { key: 'say', title: 'Say', description: 'Send messages to a channel with send history', icon: 'fa-comment', component: Say },
     { key: 'image-filter', title: 'Image Filter', description: 'Manage SHA256 checksum watchlist and view moderation log', icon: 'fa-image', component: ImageFilter },
+    { key: 'channel-summary', title: 'AI Channel Summary', description: 'AI-powered summary of recent channel activity', icon: 'fa-hashtag', component: ChannelSummary },
+    { key: 'guild-scan', title: 'AI Guild Scan', description: 'Scan all channels for potentially malicious users', icon: 'fa-shield-halved', component: GuildScan },
     { key: 'analytics', title: 'Analytics', description: 'Server stats, user activity, and message trends with charts', icon: 'fa-chart-simple', component: Analytics },
     { key: 'text-filter', title: 'Text Filter', description: 'Manage text pattern filters with warn/kick/ban actions', icon: 'fa-font', component: TextFilter },
-    { key: 'recent-reports', title: 'Historical Data', description: 'Browse, download, and delete generated scans', icon: 'fa-clock-rotate-left', component: RecentReports },
     { key: 'messages', title: 'Messages', description: 'Browse per-channel message history with search, filters, and export', icon: 'fa-message', component: Messages },
     { key: 'settings', title: 'Settings', description: 'Configure dashboard and bot settings', icon: 'fa-gear', component: Settings },
     { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', icon: 'fa-shield', component: ModLog },

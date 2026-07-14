@@ -20,6 +20,9 @@ export interface AiScanResult {
   weirdScore: number | null;
   spammerScore: number | null;
   aiScore: number | null;
+  cached?: boolean;
+  messageCount?: number;
+  generated?: string;
   error?: string;
 }
 
@@ -30,17 +33,49 @@ interface StreamChunk {
   error?: string;
 }
 
-export async function generateAiScan(guild: Guild, userId: string): Promise<AiScanResult> {
+export async function generateAiScan(guild: Guild, userId: string, force = false): Promise<AiScanResult> {
   if (!config.openrouter.apiKey) {
     return { userId, username: "", analysis: "", riskScore: null, niceScore: null, weirdScore: null, spammerScore: null, aiScore: null, error: "OpenRouter API key not configured. Add it to src/config.json" };
   }
 
   const db = getGuildDb(guild.id);
 
+  // Get user info (needed before cache check for username)
   const memberRow = db.prepare("SELECT * FROM members WHERE id = ?").get(userId) as Record<string, unknown> | undefined;
   const member = guild.members.cache.get(userId) ?? (await guild.members.fetch(userId).catch(() => null));
 
   const username = memberRow?.username as string ?? member?.user.username ?? userId;
+
+  // Check for existing scan if not forced
+  if (!force) {
+    const existing = db.prepare(`
+      SELECT id, generated, ai_scan, risk_score, nice_score, weird_score, spammer_score, ai_score FROM reports
+      WHERE type = 'ai-scan' AND username = ?
+      ORDER BY generated DESC LIMIT 1
+    `).get(username) as { id: string; generated: string; ai_scan: string; risk_score: number | null; nice_score: number | null; weird_score: number | null; spammer_score: number | null; ai_score: number | null } | undefined;
+
+    if (existing) {
+      const newestMsg = db.prepare(`SELECT MAX(created_at) as ts FROM messages WHERE author_id = ?`).get(userId) as { ts: number | null } | undefined;
+      if (newestMsg?.ts) {
+        const lastScanTime = new Date(existing.generated).getTime();
+        if (newestMsg.ts < lastScanTime) {
+          return {
+            userId,
+            username,
+            analysis: existing.ai_scan || "",
+            riskScore: existing.risk_score,
+            niceScore: existing.nice_score,
+            weirdScore: existing.weird_score,
+            spammerScore: existing.spammer_score,
+            aiScore: existing.ai_score,
+            cached: true,
+            generated: existing.generated,
+          };
+        }
+      }
+    }
+  }
+
   const displayName = memberRow?.display_name as string ?? member?.displayName ?? "";
   const joinDate = memberRow?.guild_join_date as string ?? member?.joinedAt?.toISOString() ?? "unknown";
   const topRole = memberRow?.top_role as string ?? member?.roles.highest.name ?? "@everyone";

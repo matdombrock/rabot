@@ -27,6 +27,7 @@
   let aiScanResult = null;
   let aiScanLoading = false;
   let aiScanHtml = '';
+  let aiScanCached = false;
 
   function renderMarkdown(text) {
     if (!text) return '';
@@ -56,6 +57,8 @@
       if (!r.ok) throw new Error(await r.text());
       analysis = await r.json();
       loadHistory();
+      // Auto-load cached AI scan
+      autoLoadAiScan(userId);
       await tick();
       // Scroll this card into view with offset for sticky header
       const el = document.querySelector('.analysis-pane');
@@ -155,18 +158,35 @@
     dispatch('viewMessages', userId);
   }
 
-  async function runAiScan() {
+  async function autoLoadAiScan(userId) {
+    if (!guildId) return;
+    try {
+      const r = await fetch(`/api/guild/${guildId}/user-ai-scan/${userId}`);
+      if (!r.ok) return;
+      const data = await r.json();
+      if (data.error || !data.cached) return;
+      aiScanResult = data;
+      aiScanCached = true;
+      aiScanHtml = renderMarkdown(data.analysis);
+    } catch {}
+  }
+
+  async function runAiScan(force = false) {
     if (!analysis) return;
     aiScanLoading = true;
     aiScanError = '';
     aiScanResult = null;
     aiScanHtml = '';
+    aiScanCached = false;
     try {
-      const r = await fetch(`/api/guild/${guildId}/user-ai-scan/${analysis.userId}`);
+      let url = `/api/guild/${guildId}/user-ai-scan/${analysis.userId}`;
+      if (force) url += '?force=true';
+      const r = await fetch(url);
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       if (data.error) throw new Error(data.error);
       aiScanResult = data;
+      aiScanCached = data.cached;
       aiScanHtml = renderMarkdown(data.analysis);
       loadHistory();
     } catch (err) {
@@ -281,7 +301,7 @@
     </div>
     <div class="analysis-actions">
       <button class="btn-sm" on:click={() => viewMessages(analysis.userId)}><i class="fa-solid fa-message"></i> View Messages</button>
-      <button class="btn-sm" on:click={runAiScan} disabled={aiScanLoading}><i class="fa-solid fa-microchip"></i> {aiScanLoading ? 'Scanning...' : 'AI Scan'}</button>
+      <button class="btn-sm" on:click={() => runAiScan(aiScanCached)} disabled={aiScanLoading}><i class="fa-solid fa-microchip"></i> {aiScanLoading ? 'Scanning...' : aiScanCached ? 'Force Re-scan' : 'AI Scan'}</button>
       <button class="btn-sm" on:click={downloadAnalysis}>Download CSV</button>
       <button class="btn-sm" on:click={closeAnalysis}>Close</button>
     </div>

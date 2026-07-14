@@ -162,6 +162,8 @@ export function getGuildDb(guildId: string): DbType {
   try { db.exec("ALTER TABLE reports ADD COLUMN weird_score INTEGER DEFAULT NULL"); } catch {}
   try { db.exec("ALTER TABLE reports ADD COLUMN spammer_score INTEGER DEFAULT NULL"); } catch {}
   try { db.exec("ALTER TABLE reports ADD COLUMN ai_score INTEGER DEFAULT NULL"); } catch {}
+  try { db.exec("ALTER TABLE reports ADD COLUMN message_count INTEGER DEFAULT 0"); } catch {}
+  try { db.exec("ALTER TABLE reports ADD COLUMN channel_id TEXT NOT NULL DEFAULT ''"); } catch {}
 
   // Migration for messages.deleted column (added for delete-message feature)
   try { db.exec("ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0"); } catch {}
