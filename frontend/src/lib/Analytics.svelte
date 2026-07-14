@@ -11,7 +11,48 @@
   let data = null;
   let chartInstances = [];
 
+  // Chart order — flat list of individual charts
+  let chartOrder = [
+    { title: 'Messages per Day', id: 'chart-messages' },
+    { title: 'New Users per Day', id: 'chart-users' },
+    { title: 'Messages per Channel', id: 'chart-channels' },
+    { title: 'Messages by Day of Week (avg/week)', id: 'chart-dow' },
+    { title: 'Top Posters', id: 'chart-top-posters' },
+    { title: 'Activity by Hour', id: 'chart-hour' },
+    { title: 'Deleted vs Active Messages', id: 'chart-deleted' },
+    { title: 'Role Distribution', id: 'chart-roles' },
+  ];
+
+  // Group into rows of 2 for display
+  $: chartRows = [];
+  $: {
+    const rows = [];
+    for (let i = 0; i < chartOrder.length; i += 2) {
+      rows.push(chartOrder.slice(i, i + 2));
+    }
+    chartRows = rows;
+  }
+
+  let dragIndex = -1;
+  let dragOverIndex = -1;
+
+  function onDragStart(index) { dragIndex = index; }
+  function onDragOver(e, index) { e.preventDefault(); dragOverIndex = index; }
+  function onDragLeave() { dragOverIndex = -1; }
+  function onDrop(index) {
+    if (dragIndex === -1 || dragIndex === index) { dragIndex = -1; dragOverIndex = -1; return; }
+    const newOrder = [...chartOrder];
+    const [moved] = newOrder.splice(dragIndex, 1);
+    newOrder.splice(index, 0, moved);
+    chartOrder = newOrder;
+    dragIndex = -1;
+    dragOverIndex = -1;
+    tick().then(() => renderCharts());
+  }
+  function onDragEnd() { dragIndex = -1; dragOverIndex = -1; }
+
   // Controls
+  let timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
   let rangeDays = 90;
 
   const rangeOptions = [
@@ -485,67 +526,31 @@
           {/each}
         </select>
       </div>
+      <div class="timezone-label"><i class="fa-solid fa-clock"></i> {timezone}</div>
     </div>
 
-    <div class="charts-row">
-      <div class="chart-section">
-        <h3>Messages per Day</h3>
-        <div class="chart-wrap">
-          <canvas id="chart-messages"></canvas>
-        </div>
+    {#each chartRows as row, ri}
+      <div class="charts-row">
+        {#each row as item, ci}
+          {@const globalIndex = ri * 2 + ci}
+          <div
+            class="chart-section"
+            class:drag-over={dragOverIndex === globalIndex && dragIndex !== globalIndex}
+            draggable={true}
+            on:dragstart={() => onDragStart(globalIndex)}
+            on:dragover={(e) => onDragOver(e, globalIndex)}
+            on:dragleave={onDragLeave}
+            on:drop={() => onDrop(globalIndex)}
+            on:dragend={onDragEnd}
+          >
+            <h3>{item.title}</h3>
+            <div class="chart-wrap">
+              <canvas id={item.id}></canvas>
+            </div>
+          </div>
+        {/each}
       </div>
-      <div class="chart-section">
-        <h3>New Users per Day</h3>
-        <div class="chart-wrap">
-          <canvas id="chart-users"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-section">
-        <h3>Messages per Channel</h3>
-        <div class="chart-wrap">
-          <canvas id="chart-channels"></canvas>
-        </div>
-      </div>
-      <div class="chart-section">
-        <h3>Messages by Day of Week (avg/week)</h3>
-        <div class="chart-wrap">
-          <canvas id="chart-dow"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-section">
-        <h3>Top Posters</h3>
-        <div class="chart-wrap">
-          <canvas id="chart-top-posters"></canvas>
-        </div>
-      </div>
-      <div class="chart-section">
-        <h3>Activity by Hour</h3>
-        <div class="chart-wrap">
-          <canvas id="chart-hour"></canvas>
-        </div>
-      </div>
-    </div>
-
-    <div class="charts-row">
-      <div class="chart-section">
-        <h3>Deleted vs Active Messages</h3>
-        <div class="chart-wrap">
-          <canvas id="chart-deleted"></canvas>
-        </div>
-      </div>
-      <div class="chart-section">
-        <h3>Role Distribution</h3>
-        <div class="chart-wrap">
-          <canvas id="chart-roles"></canvas>
-        </div>
-      </div>
-    </div>
+    {/each}
   </div>
 {/if}
 
@@ -592,6 +597,14 @@
     flex-wrap: wrap;
     align-items: flex-end;
   }
+  .timezone-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding-bottom: 0.35rem;
+  }
   .control-group {
     display: flex;
     flex-direction: column;
@@ -612,6 +625,17 @@
     display: grid;
     grid-template-columns: 1fr;
     gap: 1rem;
+  }
+  .chart-section {
+    cursor: grab;
+    border: 2px solid transparent;
+    border-radius: 6px;
+    padding: 0.25rem;
+    transition: border-color 0.15s;
+  }
+  .chart-section:active { cursor: grabbing; }
+  .chart-section.drag-over {
+    border-color: var(--primary);
   }
   @media (min-width: 900px) {
     .charts-row {
