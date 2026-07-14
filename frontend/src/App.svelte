@@ -16,6 +16,7 @@
   import Settings from './lib/Settings.svelte'
   import ModLog from './lib/ModLog.svelte'
   import AvatarPopup from './lib/AvatarPopup.svelte'
+  import Login from './lib/Login.svelte'
 
   const STORAGE_KEY = 'rb-zero-last-guild-id';
   const ORDER_KEY = 'rb-zero-pane-order';
@@ -55,6 +56,9 @@
   }
   let ready = false;
   let paneSearch = '';
+  let user = null;
+  let authChecked = false;
+  let guildsLoading = false;
 
   // Ordered list of pane keys (from localStorage or default)
   let paneOrder = [];
@@ -103,6 +107,46 @@
 
   function saveGuildId(id) {
     try { localStorage.setItem(STORAGE_KEY, id); } catch {}
+  }
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    user = null;
+    guildId = '';
+    guilds = [];
+  }
+
+  async function checkAuth() {
+    try {
+      const res = await fetch('/api/auth/me');
+      if (!res.ok) { user = null; authChecked = true; return; }
+      user = await res.json();
+      authChecked = true;
+    } catch {
+      user = null;
+      authChecked = true;
+    }
+  }
+
+  async function loadGuilds() {
+    guildsLoading = true;
+    try {
+      const r = await fetch('/api/guilds');
+      guilds = await r.json();
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved && guilds.some(g => g.id === saved)) {
+          guildId = saved;
+        }
+      } catch {}
+    } catch {}
+    guildsLoading = false;
+    ready = true;
+  }
+
+  async function onLogin() {
+    await checkAuth();
+    if (user) await loadGuilds();
   }
 
   function saveOrder() {
@@ -205,20 +249,13 @@
   }
 
   onMount(async () => {
-    // Restore pane order, state, and settings
     paneOrder = loadOrder();
     paneCollapsed = loadState();
     dashboardSettings = loadSettings();
 
-    const r = await fetch('/api/guilds');
-    guilds = await r.json();
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved && guilds.some(g => g.id === saved)) {
-        guildId = saved;
-      }
-    } catch {}
-    ready = true;
+    await checkAuth();
+    if (!user) return;
+    await loadGuilds();
   });
 
   $: if (ready && guildId) saveGuildId(guildId);
@@ -236,9 +273,17 @@
 <header class="sticky-header">
   <div class="header-top">
     <h1><img src="/avatar.png" alt="" class="header-logo" /> rb-zero</h1>
-    <button class="header-settings-btn" on:click={focusSettings} title="Settings">
-      <i class="fa-solid fa-gear"></i>
-    </button>
+    <div class="header-actions">
+      {#if user}
+        <span class="header-user">{user.username}</span>
+        <button class="header-logout-btn" on:click={logout} title="Log out">
+          <i class="fa-solid fa-right-from-bracket"></i>
+        </button>
+      {/if}
+      <button class="header-settings-btn" on:click={focusSettings} title="Settings">
+        <i class="fa-solid fa-gear"></i>
+      </button>
+    </div>
   </div>
 
   <div class="guild-bar">
@@ -276,6 +321,13 @@
   </div>
 </header>
 
+{#if !authChecked}
+  <div class="loading">Loading...</div>
+{:else if !user}
+  <Login on:login={onLogin} />
+{:else if !ready}
+  <div class="loading">Loading guilds...</div>
+{:else}
 {#if dashboardSettings.showQuickSearch !== false}
 <Card title="Quick Search" icon="fa-magnifying-glass" expanded={true}>
   <input type="text" placeholder="Type to filter panes..." bind:value={paneSearch} class="pane-search-input" />
@@ -361,6 +413,7 @@
 </div>
 
 <AvatarPopup show={avatarPopup.show} url={avatarPopup.url} name={avatarPopup.name} />
+{/if}
 
 <style>
   .sticky-header {
@@ -409,6 +462,55 @@
   .header-settings-btn:hover {
     color: var(--text-bright);
     background: var(--surface);
+  }
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .header-user {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+  }
+  .header-logout-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1rem;
+    cursor: pointer;
+    padding: 0.35rem;
+    border-radius: 4px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .header-logout-btn:hover {
+    color: var(--danger);
+    background: var(--surface);
+  }
+  .loading {
+    text-align: center;
+    color: var(--text-muted);
+    padding: 4rem 0;
+    font-size: 0.95rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  .loading::before {
+    content: '';
+    width: 32px;
+    height: 32px;
+    border: 3px solid var(--surface-alt);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
   }
   .guild-bar {
     padding: 0.75rem 1rem;

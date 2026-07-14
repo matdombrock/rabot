@@ -10,7 +10,8 @@
     "backfill": "tsx src/backfill.ts",
     "build": "tsc && npm run build:frontend",
     "build:frontend": "cd frontend && npm run build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "user": "tsx src/cli-users.ts"
   },
   "dependencies": {
     "better-sqlite3": "^12.11.1",

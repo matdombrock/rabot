@@ -4,6 +4,8 @@ import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 import type { Client } from "discord.js";
 import { getGuildDb } from "../db.js";
+import { requireAuth, requireGuildAccess, mountAuthRoutes, type AuthRequest } from "./auth.js";
+import { isSuperAdmin, getUserGuilds } from "../auth.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -14,12 +16,23 @@ export function createWebServer(client: Client) {
   app.use(express.json());
   app.use(express.static(path.join(__dirname, "public")));
 
+  // ── Auth routes (public) ──
+  mountAuthRoutes(app);
+
+  // ── All guild routes require auth + guild access ──
+  app.use("/api/guild/:guildId", requireAuth, requireGuildAccess);
+
   // ── Global routes ──
 
-  app.get("/api/guilds", async (_req, res) => {
+  app.get("/api/guilds", requireAuth, async (req, res) => {
+    const user = (req as AuthRequest).user!;
+    const superadmin = isSuperAdmin(user.id);
+    const assignedGuilds = superadmin ? null : getUserGuilds(user.id);
+
     const guilds = await Promise.all(client.guilds.cache.map(async (g) => {
-      // Fetch guild from REST API to get approximate_presence_count
-      // This field is available without the GuildPresences privileged intent
+      // Non-superadmins only see their assigned guilds
+      if (!superadmin && !assignedGuilds!.includes(g.id)) return null;
+
       let onlineCount = 0;
       try {
         const fetched = await g.fetch();
@@ -33,10 +46,10 @@ export function createWebServer(client: Client) {
         onlineCount,
       };
     }));
-    res.json(guilds);
+    res.json(guilds.filter(Boolean));
   });
 
-  app.get("/api/info", async (_req, res) => {
+  app.get("/api/info", requireAuth, async (_req, res) => {
     try {
       res.json({
         tag: client.user?.tag ?? "Unknown",

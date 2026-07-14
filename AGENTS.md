@@ -19,6 +19,7 @@ A Discord bot with a Svelte web control panel. Moderates images via SHA256 check
 | `npm run build` | tsc + build frontend |
 | `npm run build:frontend` | Build frontend only |
 | `npm run typecheck` | tsc --noEmit |
+| `npm run user -- <cmd>` | User management (see Auth section) |
 
 ## DB Layout
 
@@ -29,6 +30,7 @@ db/{guildId}/
 ├── data.db           # SQLite — members, messages, reports, modlogs, saylogs, checksums, config
 └── backfill.json     # Progress tracker for the backfill script
 
+db/auth.db            # SQLite — users, user_guilds, sessions
 db/main.json          # LowDB — global settings (only LowDB file)
 ```
 
@@ -36,7 +38,7 @@ Tables in `data.db`:
 
 | Table | Contents | Populated by |
 |---|---|---|
-| `messages` | Full message history (id, channelId, authorId, content, createdAt) | Live `messageCreate` + `npm run backfill` |
+| `messages` | Full message history (id, channelId, authorId, content, createdAt, deleted) | Live `messageCreate` + `npm run backfill` |
 | `members` | Member profiles (username, displayName, avatar, join dates, roles, watched) | Live `messageCreate` + backfill |
 | `reports` | Saved reports, user scans, AI scans, channel summaries, guild scans | On generate |
 | `modlogs` | Image filter moderation actions | On ban/kick match |
@@ -47,6 +49,14 @@ Tables in `data.db`:
 | `config` | Key/value settings (action: ban/kick, aichat_enabled) | Via web panel |
 | `actionlogs` | Manual mod actions + audit log events | On action |
 | `ai_chat_log` | AI chat history (Q&A pairs) | On AI chat response |
+
+Tables in `db/auth.db`:
+
+| Table | Contents |
+|---|---|
+| `users` | User accounts (id, username, password_hash, discord_id, is_superadmin, created_at) |
+| `user_guilds` | Guild assignments — which users can access which guilds (user_id, guild_id) |
+| `sessions` | Active session tokens (token, user_id, created_at, expires_at) |
 
 ## Always
 
@@ -67,8 +77,10 @@ Tables in `data.db`:
 src/
 ├── index.ts              # Entry point, starts client + web server
 ├── db.ts                 # mainDb (LowDB) + getGuildDb() (SQLite factory)
+├── auth.ts               # Auth DB (users, sessions, guild assignments), password hashing, session management
+├── cli-users.ts          # CLI user management (create, delete, assign, revoke, superadmin, list, password, init)
 ├── backfill.ts           # One-time historical message scan
-├── config.ts             # Env vars
+├── config.ts             # Config loader (reads src/config.json)
 ├── deploy-commands.ts    # Registers slash commands
 ├── types.ts              # Command and Event interfaces
 ├── commands/             # Slash command modules (ping, info)
@@ -93,6 +105,7 @@ src/
 │   └── prompts/               # LLM prompt text files
 └── web/
     ├── server.ts         # Express API + static file server
+    ├── auth.ts           # Auth middleware, login/logout routes, user management API
     └── public/           # Built frontend (generated)
 
 frontend/
@@ -116,7 +129,8 @@ frontend/
         ├── AiChat.svelte            # AI chat toggle and history
         ├── Settings.svelte          # Dashboard/bot settings (localStorage + DB)
         ├── ModLog.svelte            # Action log for mod actions and audit events
-        └── Messages.svelte          # Per-channel message browser with pagination, filters, search, CSV export, HTML export
+        ├── Messages.svelte          # Per-channel message browser with pagination, filters, search, CSV export, HTML export
+        └── Login.svelte             # Login page (username/password form)
 ```
 
 ## Key Patterns
@@ -143,5 +157,15 @@ frontend/
 - **AI Channel Summary** — auto-loads cached summary on channel select. Force re-summarize button. Shows channel name, message count, fresh/cached badge.
 - **AI Guild Scan** — scans all channels for suspicious users. Caching with new-message detection.
 - **AI Chat** — toggle to enable/disable. When enabled, mentioning the bot triggers an AI response using recent channel context. Responses prefixed with `**LLM OUTPUT:**`. 30-second timeout. Chat history visible in pane with delete (removes from Discord too).
-- **Config via `src/config.json`** — port, Discord credentials, OpenRouter API key/model, AI scan truncation/temperature settings. `.env` no longer used.
+- **Config via `src/config.json`** — port, sessionSecret, Discord credentials, OpenRouter API key/model, AI scan truncation/temperature settings. `.env` no longer used.
 - **Database** — stores AI scans, channel summaries, guild scans, and AI chat logs in the `reports` and `ai_chat_log` tables. Old env files removed.
+
+## Auth
+
+- **Authentication** — httpOnly cookie-based sessions. `db/auth.db` stores users, guild assignments, and session tokens. Passwords hashed with `crypto.scrypt` (no new npm dependencies).
+- **User management** — CLI only: `npm run user -- create|delete|superadmin|assign|revoke|list|password|init`
+- **Superadmins** — can access ALL guilds the bot is in, plus manage users via CLI
+- **Regular users** — can only access explicitly assigned guilds. `/api/guilds` returns only their guilds.
+- **Guild access** — enforced via `requireAuth` + `requireGuildAccess` middleware on all `/api/guild/:guildId/*` routes
+- **Session** — 30-day TTL, stored in `db/auth.db` sessions table, set as httpOnly cookie `session_token`
+- **OAuth migration** — `discord_id` column already exists on users table. To add Discord OAuth later, add OAuth routes and swap the login UI; session/middleware code stays identical.

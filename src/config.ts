@@ -6,6 +6,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 interface Config {
   port: number;
+  sessionSecret: string;
   discord: {
     token: string;
     clientId: string;
