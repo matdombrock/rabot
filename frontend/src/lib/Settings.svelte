@@ -35,17 +35,6 @@
     </label>
   </div>
 
-  <div class="setting-row">
-    <div class="setting-info">
-      <span class="setting-label">Show Quick Search</span>
-      <span class="setting-desc">Display the quick search pane</span>
-    </div>
-    <label class="toggle">
-      <input type="checkbox" checked={settings.showQuickSearch !== false} on:change={(e) => update('showQuickSearch', e.target.checked)} />
-      <span class="toggle-slider"></span>
-    </label>
-  </div>
-
   <div class="setting-row action-row">
     <div class="setting-info">
       <span class="setting-label">Reset Pane Order</span>

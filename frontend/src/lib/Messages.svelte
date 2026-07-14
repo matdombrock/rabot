@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   const dispatch = createEventDispatcher();
   import UserSearchBox from './UserSearchBox.svelte';
   import AvatarPopup from './AvatarPopup.svelte';
@@ -31,6 +31,31 @@
   let showDeleted = true;
   let deletedOnly = false;
   let showFilters = false;
+
+  // Auto-refresh
+  let refreshInterval = null;
+  let countdown = 0;
+  let countdownInterval = null;
+
+  function startRefresh() {
+    stopRefresh();
+    countdown = 10;
+    refreshInterval = setInterval(() => {
+      if (channelId && !loading) loadMessages(false);
+      countdown = 10;
+    }, 10000);
+    countdownInterval = setInterval(() => {
+      if (countdown > 0) countdown--;
+    }, 1000);
+  }
+
+  function stopRefresh() {
+    if (refreshInterval) { clearInterval(refreshInterval); refreshInterval = null; }
+    if (countdownInterval) { clearInterval(countdownInterval); countdownInterval = null; }
+    countdown = 0;
+  }
+
+  onDestroy(stopRefresh);
 
   // Normalise members to UserSearchBox format
   $: searchUsers = members.map(m => ({
@@ -70,7 +95,7 @@
 
   async function loadMessages(append = false) {
     if (!guildId || !channelId) return;
-    if (append) { loadingMore = true; } else { loading = true; messages = []; nextCursor = null; }
+    if (append) { loadingMore = true; } else { loading = true; nextCursor = null; }
 
     try {
       const r = await fetch(buildUrl(append));
@@ -79,7 +104,10 @@
       if (append) {
         messages = [...messages, ...data.messages];
       } else {
-        messages = data.messages;
+        const key = m => `${m.id}:${m.content}:${m.deleted}`;
+        const newKey = data.messages.map(key).join('\n');
+        const oldKey = messages.map(key).join('\n');
+        if (newKey !== oldKey) messages = data.messages;
       }
       nextCursor = data.next;
       isSearch = !!data.search;
@@ -92,7 +120,12 @@
   }
 
   function onChannelChange() {
-    if (channelId) loadMessages(false);
+    if (channelId) {
+      loadMessages(false);
+      startRefresh();
+    } else {
+      stopRefresh();
+    }
   }
 
   function doSearch() {
@@ -549,6 +582,7 @@ ${messagesHtml}
       {messages.length} message(s)
     {/if}
     {#if authorId || hasUrl || hasImage || hasEveryone} <span style="color:var(--primary)">(filtered)</span>{/if}
+    {#if countdown > 0 && channelId} <span style="color:var(--text-muted);margin-left:0.5rem">refreshing in {countdown}s</span>{/if}
   </div>
   <span class="export-buttons">
     {#if messages.length > 0}
@@ -577,7 +611,11 @@ ${messagesHtml}
       <div class="msg-body">
         <div class="msg-head">
           <span class="msg-author clickable" on:click={() => dispatch('analyzeUser', msg.author_id)}>{msg.username || msg.author_id}</span>
-          <span class="msg-time">{new Date(msg.created_at).toLocaleString()}<!-- -->{#if msg.deleted === 1 || msg._deletedLocally} <span class="deleted-tag">(deleted)</span>{/if}</span>
+          <span class="msg-time">{new Date(msg.created_at).toLocaleString()}</span>
+          {#if channelId === '_all'}
+            <span class="msg-channel clickable" on:click={() => { channelId = msg.channel_id; }}>#{channels.find(c => c.id === msg.channel_id)?.name || msg.channel_id}</span>
+          {/if}
+          {#if msg.deleted === 1 || msg._deletedLocally} <span class="deleted-tag">(deleted)</span>{/if}
           <span class="msg-actions">
             <button class="action-btn" on:click={() => copyText(msg)} title="Copy text">Copy</button>
             <button class="action-btn" on:click={() => copyLink(msg)} title="Copy Discord link">Link</button>
@@ -663,6 +701,7 @@ ${messagesHtml}
   .clickable { cursor: pointer; }
   .clickable:hover { filter: brightness(1.3); }
   .msg-time { color: var(--text-muted); font-size: 0.75rem; }
+  .msg-channel { color: var(--primary); font-size: 0.75rem; }
   .msg-actions { margin-left: auto; display: flex; gap: 0.25rem; flex-shrink: 0; }
   .action-btn {
     padding: 0.15rem 0.4rem;

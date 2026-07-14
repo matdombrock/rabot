@@ -56,7 +56,7 @@ async function handleMatch(message: Message, matchedEntry: { checksum: string; l
 const messageCreate: Event = {
   name: Events.MessageCreate,
   async execute(message: Message) {
-    if (message.author.bot || !message.guild) return;
+    if (!message.guild) return;
     const guildId = message.guildId!;
     const db = getGuildDb(guildId);
     const now = new Date().toISOString();
@@ -74,6 +74,9 @@ const messageCreate: Event = {
         message.author.createdAt.toISOString(), member.joinedAt?.toISOString() ?? null, member.roles.highest.name, message.author.bot ? 1 : 0, now
       );
     }
+
+    // Skip filters for bot messages
+    if (message.author.bot) return;
 
     // ── Text filter check ──
 

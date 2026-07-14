@@ -190,7 +190,7 @@
       const saved = localStorage.getItem(SETTINGS_KEY);
       if (saved) return JSON.parse(saved);
     } catch {}
-    return { showTips: true, showQuickSearch: true };
+    return { showTips: true };
   }
 
   function saveSettings() {
@@ -216,7 +216,7 @@
     } catch {}
     paneOrder = paneDefs.map(p => p.key);
     paneCollapsed = {};
-    dashboardSettings = { showTips: true, showQuickSearch: true };
+    dashboardSettings = { showTips: true };
     guildId = '';
   }
 
@@ -266,8 +266,8 @@
   $: memberCount = selectedGuild?.memberCount ?? null;
   $: onlineCount = selectedGuild?.onlineCount ?? null;
 
-  // Re-init Sortable after the pane list is rendered/updated
-  $: if (orderedPanes.length > 0) {
+  // Re-init Sortable after the pane container appears or pane list updates
+  $: if (ready && orderedPanes.length > 0) {
     tick().then(() => initSortable());
   }
 </script>
@@ -292,10 +292,6 @@
     <div class="guild-bar-main">
       <div class="guild-inputs">
         <div class="guild-row">
-          <label for="guild-id">Guild ID:</label>
-          <input id="guild-id" type="text" placeholder="Enter guild ID..." bind:value={guildId} />
-        </div>
-        <div class="guild-row">
           <label for="guild-select">Select guild:</label>
           <select id="guild-select" on:change={(e) => { guildId = e.target.value; saveGuildId(e.target.value); }}>
             <option value="">-- choose a guild --</option>
@@ -303,7 +299,11 @@
               <option value={g.id}>{g.name}</option>
             {/each}
           </select>
+          {#if guildId}
+            <span class="guild-id-display">{guildId}</span>
+          {/if}
         </div>
+        <input type="text" placeholder="Filter panes..." bind:value={paneSearch} class="pane-search-input" />
       </div>
       {#if selectedGuild}
         <div class="guild-info">
@@ -330,12 +330,6 @@
 {:else if !ready}
   <div class="loading">Loading guilds...</div>
 {:else}
-{#if dashboardSettings.showQuickSearch !== false}
-<Card title="Quick Search" icon="fa-magnifying-glass" expanded={true}>
-  <input type="text" placeholder="Type to filter panes..." bind:value={paneSearch} class="pane-search-input" />
-</Card>
-{/if}
-
 <div id="pane-container">
 {#each orderedPanes as pane, i (pane.key)}
   <div
@@ -542,15 +536,17 @@
     white-space: nowrap;
     min-width: fit-content;
   }
-  .guild-row input {
-    flex: 1;
-    min-height: unset;
-    margin-top: 0;
-    padding: 0.5rem;
-    font-family: monospace;
-  }
   .guild-row select {
     flex: 1;
+  }
+  .guild-id-display {
+    font-family: monospace;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    background: var(--background);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    white-space: nowrap;
   }
   .guild-info {
     display: flex;
@@ -617,13 +613,18 @@
     font-size: 1rem;
     user-select: none;
     opacity: 0.4;
-    transition: opacity 0.15s;
+    transition: opacity 0.15s, background 0.15s;
     touch-action: none;
+    background: var(--surface);
+    border-radius: 8px 0 0 8px;
   }
+  .pane-handle:hover {
+    opacity: 0.8;
+    background: var(--surface-alt);
+  }
+  .pane-handle:active { opacity: 1; }
   .pane.sortable-ghost { opacity: 0.3; }
   .pane.sortable-ghost .pane-content { outline: 2px dashed var(--primary); outline-offset: -2px; border-radius: 8px; }
-  .pane:hover .pane-handle,
-  .pane-handle:active { opacity: 0.8; }
   .pane-content {
     flex: 1;
     min-width: 0;
@@ -646,10 +647,6 @@
     }
     .guild-row label {
       font-size: 0.8rem;
-    }
-    .guild-row input {
-      min-width: 0;
-      width: auto;
     }
   }
 </style>
