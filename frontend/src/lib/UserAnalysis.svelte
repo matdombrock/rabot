@@ -276,34 +276,42 @@
     <p style="color:var(--danger)">Error: {analysisError}</p>
   {:else if analysis}
     <div class="analysis-body">
-      {#if analysis.avatarUrl}
-        <img src={analysis.avatarUrl} alt="" class="analysis-avatar clickable" on:click={() => showAvatar(analysis.avatarUrl, analysis.username)} />
-      {/if}
-      <div class="table-scroll" style="flex:1">
-        <table class="analysis-table">
-          <tbody>
-            <tr><td>Username</td><td>{analysis.username}</td></tr>
-            <tr><td>Display Name</td><td>{analysis.displayName}</td></tr>
-            <tr><td>User ID</td><td>{analysis.userId}</td></tr>
-            <tr><td>Discord Join Date</td><td>{analysis.discordJoinDate ? new Date(analysis.discordJoinDate).toLocaleString() : 'N/A'}</td></tr>
-            <tr><td>Guild Join Date</td><td>{analysis.guildJoinDate ? new Date(analysis.guildJoinDate).toLocaleString() : 'N/A'}</td></tr>
-            <tr><td>Days in Server</td><td>{analysis.daysInServer}</td></tr>
-            <tr><td>Account Age</td><td>{analysis.accountAgeDays} days</td></tr>
-            <tr><td>Top Role</td><td>{analysis.topRole}</td></tr>
-            <tr><td>Roles</td><td>{analysis.roles.join(', ')}</td></tr>
-            <tr><td>Boosting</td><td>{analysis.isBoosting ? 'Yes' : 'No'}</td></tr>
-            <tr><td>Bot</td><td>{analysis.isBot ? 'Yes' : 'No'}</td></tr>
-            <tr><td>Total Messages</td><td>{analysis.totalMessages}</td></tr>
-            <tr><td>Last Post</td><td>{analysis.lastPostDate ? new Date(analysis.lastPostDate).toLocaleString() : 'N/A'}</td></tr>
-          </tbody>
-        </table>
+      <div class="analysis-top">
+        {#if analysis.avatarUrl}
+          <img src={analysis.avatarUrl} alt="" class="analysis-avatar clickable" on:click={() => showAvatar(analysis.avatarUrl, analysis.username)} />
+        {/if}
+        <div class="analysis-identity">
+          <span class="analysis-username">{analysis.username}</span>
+          {#if analysis.displayName && analysis.displayName !== analysis.username}
+            <span class="analysis-display">{analysis.displayName}</span>
+          {/if}
+          <span class="analysis-id">{analysis.userId}</span>
+        </div>
+        <div class="analysis-actions-inline">
+          <button class="btn-sm" on:click={() => viewMessages(analysis.userId)}><i class="fa-solid fa-message"></i> Messages</button>
+          <button class="btn-sm" on:click={() => runAiScan(aiScanCached)} disabled={aiScanLoading}><i class="fa-solid fa-microchip"></i> {aiScanLoading ? 'Scanning...' : aiScanCached ? 'Re-scan' : 'AI Scan'}</button>
+          <button class="btn-sm" on:click={downloadAnalysis}>CSV</button>
+          <button class="btn-sm" on:click={closeAnalysis}>Close</button>
+        </div>
       </div>
-    </div>
-    <div class="analysis-actions">
-      <button class="btn-sm" on:click={() => viewMessages(analysis.userId)}><i class="fa-solid fa-message"></i> View Messages</button>
-      <button class="btn-sm" on:click={() => runAiScan(aiScanCached)} disabled={aiScanLoading}><i class="fa-solid fa-microchip"></i> {aiScanLoading ? 'Scanning...' : aiScanCached ? 'Force Re-scan' : 'AI Scan'}</button>
-      <button class="btn-sm" on:click={downloadAnalysis}>Download CSV</button>
-      <button class="btn-sm" on:click={closeAnalysis}>Close</button>
+      <div class="analysis-grid">
+        <div class="analysis-col">
+          <div class="field"><span class="field-label">Discord Join</span><span>{analysis.discordJoinDate ? new Date(analysis.discordJoinDate).toLocaleDateString() : 'N/A'}</span></div>
+          <div class="field"><span class="field-label">Guild Join</span><span>{analysis.guildJoinDate ? new Date(analysis.guildJoinDate).toLocaleDateString() : 'N/A'}</span></div>
+          <div class="field"><span class="field-label">Days in Server</span><span>{analysis.daysInServer}</span></div>
+          <div class="field"><span class="field-label">Account Age</span><span>{analysis.accountAgeDays} days</span></div>
+        </div>
+        <div class="analysis-col">
+          <div class="field"><span class="field-label">Top Role</span><span>{analysis.topRole}</span></div>
+          <div class="field"><span class="field-label">Boosting</span><span>{analysis.isBoosting ? 'Yes' : 'No'}</span></div>
+          <div class="field"><span class="field-label">Bot</span><span>{analysis.isBot ? 'Yes' : 'No'}</span></div>
+          <div class="field"><span class="field-label">Messages</span><span>{analysis.totalMessages}</span></div>
+          <div class="field"><span class="field-label">Last Post</span><span>{analysis.lastPostDate ? new Date(analysis.lastPostDate).toLocaleDateString() : 'N/A'}</span></div>
+        </div>
+      </div>
+      {#if analysis.roles.length > 0}
+        <div class="roles-row"><span class="field-label">Roles:</span> {analysis.roles.join(', ')}</div>
+      {/if}
     </div>
     <div class="ai-section">
       {#if aiScanLoading}
@@ -407,22 +415,47 @@
     flex-direction: column;
     gap: 0.5rem;
   }
+  .analysis-search :global(.user-search-box) { width: 100%; }
   .table-scroll {
     max-height: 400px;
     overflow: auto;
     border-radius: 4px;
   }
-  .analysis-search .user-search-box { width: 100%; }
-  .analysis-search .user-search-box input { width: 100%; }
   .analysis-body {
     display: flex;
-    gap: 1rem;
-    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.5rem;
   }
-  .analysis-avatar { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex-shrink: 0; cursor: pointer; }
-  .analysis-table { width: 100%; font-size: 0.85rem; border-collapse: collapse; }
-  .analysis-table td { padding: 0.3rem 0.5rem; border: none; }
-  .analysis-table td:first-child { color: var(--text-muted); width: 160px; }
+  .analysis-top {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .analysis-avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex-shrink: 0; cursor: pointer; }
+  .analysis-identity {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    flex: 1;
+  }
+  .analysis-username { font-weight: 600; font-size: 0.95rem; color: var(--text-bright); }
+  .analysis-display { font-size: 0.8rem; color: var(--text-muted); }
+  .analysis-id { font-size: 0.7rem; color: var(--text-muted); font-family: monospace; }
+  .analysis-actions-inline {
+    display: flex;
+    gap: 0.35rem;
+    flex-shrink: 0;
+  }
+  .analysis-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 1.5rem;
+  }
+  .analysis-col { display: flex; flex-direction: column; gap: 0.15rem; }
+  .field { display: flex; gap: 0.5rem; font-size: 0.85rem; }
+  .field-label { color: var(--text-muted); min-width: 90px; flex-shrink: 0; }
+  .roles-row { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem; }
   .past-toggle {
     display: flex;
     justify-content: space-between;
@@ -454,10 +487,6 @@
   .type-badge.badge-ai {
     background: var(--primary);
     color: var(--text-bright);
-  }
-  .analysis-actions {
-    display: flex;
-    gap: 0.5rem;
   }
   .ai-section {
     margin-top: 0.5rem;
@@ -563,9 +592,9 @@
   .action-cell { white-space: nowrap; }
   @media (max-width: 640px) {
     .table-scroll { max-height: 300px; }
-    .analysis-body { flex-direction: column; align-items: center; }
-    .analysis-avatar { width: 48px; height: 48px; }
-    .analysis-table td:first-child { width: 110px; }
+    .analysis-top { flex-direction: column; align-items: flex-start; }
+    .analysis-grid { grid-template-columns: 1fr; }
+    .analysis-actions-inline { flex-wrap: wrap; }
     .responsive-table { font-size: 0.7rem; }
     .responsive-table th,
     .responsive-table td { padding: 0.3rem 0.4rem; }

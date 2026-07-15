@@ -18,6 +18,7 @@
   import AvatarPopup from './lib/AvatarPopup.svelte'
   import Login from './lib/Login.svelte'
   import ImageDescribe from './lib/ImageDescribe.svelte'
+  import EditHistory from './lib/EditHistory.svelte'
 
   const STORAGE_KEY = 'rb-zero-last-guild-id';
   const ORDER_KEY = 'rb-zero-pane-order';
@@ -40,6 +41,7 @@
     { key: 'messages', title: 'Messages', description: 'Browse per-channel message history with search, filters, and export', icon: 'fa-message', component: Messages },
     { key: 'settings', title: 'Settings', description: 'Configure dashboard and bot settings', icon: 'fa-gear', component: Settings },
     { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', icon: 'fa-shield', component: ModLog },
+    { key: 'edit-history', title: 'Edit History', description: 'Track message edit history across all channels', icon: 'fa-pen-to-square', component: EditHistory },
   ];
 
   // Map for quick lookup
@@ -51,6 +53,7 @@
   let analyzeUserId = '';
   let scanKey = 0;
   let messagesUserId = '';
+  let editHistoryMessageFilter = '';
   let avatarPopup = { show: false, url: '', name: '' };
 
   function showAvatar(url, name) {
@@ -88,6 +91,21 @@
     messagesUserId = userId;
     setTimeout(() => {
       const el = document.querySelector('.pane-content [data-pane="messages"]');
+      if (el) {
+        const header = document.querySelector('.sticky-header');
+        const offset = header ? header.getBoundingClientRect().height + 8 : 0;
+        const top = el.getBoundingClientRect().top + window.scrollY - offset;
+        window.scrollTo({ top, behavior: 'smooth' });
+      }
+    }, 100);
+  }
+
+  function onViewEdits(messageId) {
+    paneCollapsed = { ...paneCollapsed, 'edit-history': false };
+    saveState();
+    editHistoryMessageFilter = messageId;
+    setTimeout(() => {
+      const el = document.querySelector('.pane-content [data-pane="edit-history"]');
       if (el) {
         const header = document.querySelector('.sticky-header');
         const offset = header ? header.getBoundingClientRect().height + 8 : 0;
@@ -374,7 +392,7 @@
           on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
         >
           <div data-pane="messages">
-            <Messages {guildId} authorFilter={messagesUserId} on:analyzeUser={(e) => onAnalyzeUser(e.detail)} />
+            <Messages {guildId} authorFilter={messagesUserId} on:analyzeUser={(e) => onAnalyzeUser(e.detail)} on:viewEdits={(e) => onViewEdits(e.detail)} />
           </div>
         </Card>
       {:else if pane.key === 'settings'}
@@ -389,6 +407,20 @@
         >
           <div data-pane="settings">
             <Settings {guildId} settings={dashboardSettings} on:change={onSettingChange} on:resetOrder={onResetOrder} on:resetAll={onResetAll} />
+          </div>
+        </Card>
+      {:else if pane.key === 'edit-history'}
+        <Card
+          title={pane.title}
+          icon={pane.icon}
+          description={dashboardSettings.showTips !== false ? pane.description : ''}
+          forceOpen={editHistoryMessageFilter ? 1 : 0}
+          collapseAll={!!paneSearch}
+          collapsedState={paneCollapsed[pane.key]}
+          on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
+        >
+          <div data-pane="edit-history">
+            <EditHistory {guildId} messageFilter={editHistoryMessageFilter} />
           </div>
         </Card>
       {:else}

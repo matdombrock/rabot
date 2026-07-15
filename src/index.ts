@@ -19,6 +19,7 @@ async function main() {
     import("./events/interactionCreate.js"),
     import("./events/messageCreate.js"),
     import("./events/messageDelete.js"),
+    import("./events/messageUpdate.js"),
     import("./events/guildAuditLogEntryCreate.js"),
     import("./events/messageCreateAiChat.js"),
     import("./events/messageCreateImageDescribe.js"),

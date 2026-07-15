@@ -21,6 +21,7 @@
   let loadingMore = false;
   let searchTerm = '';
   let isSearch = false;
+  let editedSet = new Set();
 
   // Filters
   let members = [];
@@ -111,6 +112,14 @@
       }
       nextCursor = data.next;
       isSearch = !!data.search;
+      if (messages.length > 0) {
+        const ids = messages.map(m => m.id).join(',');
+        const er = await fetch(`/api/guild/${guildId}/edits?message_ids=${ids}`);
+        if (er.ok) {
+          const ed = await er.json();
+          editedSet = new Set(ed.edits.map(e => e.message_id));
+        }
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -616,7 +625,11 @@ ${messagesHtml}
             <span class="msg-channel clickable" on:click={() => { channelId = msg.channel_id; }}>#{channels.find(c => c.id === msg.channel_id)?.name || msg.channel_id}</span>
           {/if}
           {#if msg.deleted === 1 || msg._deletedLocally} <span class="deleted-tag">(deleted)</span>{/if}
+          {#if editedSet.has(msg.id)} <span class="edited-tag">(edited)</span>{/if}
           <span class="msg-actions">
+            {#if editedSet.has(msg.id)}
+              <button class="action-btn action-edit" on:click={() => dispatch('viewEdits', msg.id)} title="View edit history">Edits</button>
+            {/if}
             <button class="action-btn" on:click={() => copyText(msg)} title="Copy text">Copy</button>
             <button class="action-btn" on:click={() => copyLink(msg)} title="Copy Discord link">Link</button>
             <button class="action-btn" on:click={() => openDiscord(msg)} title="Open in Discord">View</button>
@@ -717,6 +730,9 @@ ${messagesHtml}
   .action-delete:hover { background: var(--danger) !important; color: var(--text-bright); }
   .msg-content { color: var(--text); font-size: 0.85rem; margin-top: 0.15rem; word-break: break-word; white-space: pre-wrap; }
   .deleted-tag { color: var(--danger); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; }
+  .edited-tag { color: var(--text-muted); font-size: 0.7rem; font-style: italic; }
+  .action-edit { color: #8c7a20; }
+  .action-edit:hover { background: #8c7a20 !important; color: var(--text-bright); }
   .load-more-wrap { display: flex; justify-content: center; padding: 1rem; }
   .load-more { padding: 0.5rem 2rem; }
   @media (max-width: 640px) {

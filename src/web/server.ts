@@ -217,6 +217,46 @@ export function createWebServer(client: Client) {
     }
   });
 
+  // ── Edit history ──
+
+  app.get("/api/guild/:guildId/edits", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const limit = Math.min(parseInt(req.query.limit as string) || 100, 200);
+      const before = req.query.before as string | undefined;
+      const channelId = req.query.channel_id as string | undefined;
+      const authorId = req.query.author_id as string | undefined;
+      const messageId = req.query.message_id as string | undefined;
+      const messageIds = req.query.message_ids as string | undefined;
+
+      const conditions: string[] = [];
+      const params: unknown[] = [];
+
+      if (before) {
+        conditions.push("e.edited_at < (SELECT edited_at FROM message_edits WHERE id = ?)");
+        params.push(before);
+      }
+      if (channelId) { conditions.push("e.channel_id = ?"); params.push(channelId); }
+      if (authorId) { conditions.push("e.author_id = ?"); params.push(authorId); }
+      if (messageId) { conditions.push("e.message_id = ?"); params.push(messageId); }
+      if (messageIds) {
+        const ids = messageIds.split(",").filter(Boolean);
+        if (ids.length) { conditions.push("e.message_id IN (" + ids.map(() => "?").join(",") + ")"); params.push(...ids); }
+      }
+
+      const where = conditions.length ? "WHERE " + conditions.join(" AND ") : "";
+      const rows = db.prepare(`SELECT e.*, m.username, m.display_name, m.avatar_url
+        FROM message_edits e
+        LEFT JOIN members m ON e.author_id = m.id
+        ${where} ORDER BY e.edited_at DESC LIMIT ?`).all(...params, limit);
+      const next = rows.length === limit ? (rows[rows.length - 1] as any).id : null;
+      res.json({ edits: rows, next });
+    } catch (err) {
+      console.error("Edit history fetch failed:", err);
+      res.status(500).json({ error: "Failed to fetch edit history" });
+    }
+  });
+
   // ── Action log ──
 
   app.get("/api/guild/:guildId/actionlogs", async (req, res) => {
