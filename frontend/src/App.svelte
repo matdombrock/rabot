@@ -20,6 +20,7 @@
   import ImageDescribe from './lib/ImageDescribe.svelte'
   import EditHistory from './lib/EditHistory.svelte'
   import ReferenceTable from './lib/ReferenceTable.svelte'
+  import ComingSoon from './lib/ComingSoon.svelte'
 
   const STORAGE_KEY = 'rb-zero-last-guild-id';
   const ORDER_KEY = 'rb-zero-pane-order';
@@ -44,6 +45,18 @@
     { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', icon: 'fa-shield', component: ModLog },
     { key: 'edit-history', title: 'Edit History', description: 'Track message edit history across all channels', icon: 'fa-pen-to-square', component: EditHistory },
     { key: 'ref-table', title: 'Reference Table', description: 'Manage reference command entries (static text responses)', icon: 'fa-book', component: ReferenceTable },
+    { key: 'song-of-the-day', title: 'Song of the Day', description: 'Daily song suggestions and tracking', icon: 'fa-music', component: ComingSoon, props: { feature: 'Song of the Day' } },
+    { key: 'message-of-the-day', title: 'Message of the Day', description: 'Auto-published daily messages', icon: 'fa-bullhorn', component: ComingSoon, props: { feature: 'Message of the Day' } },
+    { key: 'question-of-the-day', title: 'Question of the Day', description: 'Daily prompts to spark conversation', icon: 'fa-circle-question', component: ComingSoon, props: { feature: 'Question of the Day' } },
+    { key: 'honeypot', title: 'Honeypot', description: 'Trap and monitor suspicious users', icon: 'fa-jar', component: ComingSoon, props: { feature: 'Honeypot' } },
+    { key: 'calendar', title: 'Calendar', description: 'Event scheduling and management', icon: 'fa-calendar', component: ComingSoon, props: { feature: 'Calendar' } },
+    { key: 'creator-notifications', title: 'Creator Notifications', description: 'Alerts for creator activity', icon: 'fa-bell', component: ComingSoon, props: { feature: 'Creator Notifications' } },
+    { key: 'music', title: 'Music (Jukebox)', description: 'Play music in voice channels', icon: 'fa-headphones', component: ComingSoon, props: { feature: 'Music' } },
+    { key: 'welcome-onboarding', title: 'Welcome & Onboarding', description: 'Custom welcome messages and onboarding flow', icon: 'fa-handshake', component: ComingSoon, props: { feature: 'Welcome & Onboarding' } },
+    { key: 'offboarding', title: 'Offboarding', description: 'Handle member departures and cleanup', icon: 'fa-door-open', component: ComingSoon, props: { feature: 'Offboarding' } },
+    { key: 'xp', title: 'XP', description: 'Experience points and leveling system', icon: 'fa-star', component: ComingSoon, props: { feature: 'XP' } },
+    { key: 'invite-tracking', title: 'Invite Tracking', description: 'Track who invited whom', icon: 'fa-link', component: ComingSoon, props: { feature: 'Invite Tracking' } },
+    { key: 'reaction-roles', title: 'Reaction Roles', description: 'Let users self-assign roles via reactions', icon: 'fa-face-smile', component: ComingSoon, props: { feature: 'Reaction Roles' } },
   ];
 
   // Map for quick lookup
@@ -434,7 +447,7 @@
           collapsedState={paneCollapsed[pane.key]}
           on:collapsedStateChange={(e) => onCollapsedChange(pane.key, e.detail)}
         >
-          <svelte:component this={pane.component} {guildId} />
+          <svelte:component this={pane.component} {guildId} {...pane.props ?? {}} />
         </Card>
       {/if}
     </div>
