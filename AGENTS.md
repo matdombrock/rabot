@@ -49,6 +49,7 @@ Tables in `data.db`:
 | `config` | Key/value settings (action: ban/kick, aichat_enabled) | Via web panel |
 | `actionlogs` | Manual mod actions + audit log events | On action |
 | `ai_chat_log` | AI chat history (Q&A pairs) | On AI chat response |
+| `message_edits` | Message edit history (message_id, channel_id, author_id, old_content, new_content, edited_at) | Live `messageUpdate` |
 
 Tables in `db/auth.db`:
 
@@ -89,7 +90,9 @@ src/
 │   ├── interactionCreate.ts
 │   ├── messageCreate.ts           # Live message tracking + image checksum + text filter matching
 │   ├── messageCreateAiChat.ts     # AI chat responder (triggered by bot mention)
-│   ├── messageDelete.ts           # Log all message deletions to actionlogs
+│   ├── messageCreateImageDescribe.ts # AI image describe (triggered by image attachments)
+│   ├── messageUpdate.ts           # Track message edits in message_edits table + update messages.content
+│   ├── messageDelete.ts           # Log all message deletions to actionlogs + mark deleted in messages
 │   └── guildAuditLogEntryCreate.ts # Track moderation actions via audit logs
 ├── checksum/
 │   └── compute.ts        # Streaming SHA256 from Discord CDN
@@ -130,6 +133,7 @@ frontend/
         ├── ImageDescribe.svelte     # AI image describe toggle per guild
         ├── Settings.svelte          # Dashboard/bot settings (localStorage + DB)
         ├── ModLog.svelte            # Action log for mod actions and audit events
+        ├── EditHistory.svelte       # Message edit history with diff view
         ├── Messages.svelte          # Per-channel message browser with pagination, filters, search, CSV export, HTML export
         └── Login.svelte             # Login page (username/password form)
 ```
@@ -147,19 +151,24 @@ frontend/
 - **Message stats** are queried from SQLite — `SELECT COUNT(*), MAX(created_at) FROM messages WHERE author_id = ?`
 - **Live tracking** via `messageCreate` — one SQLite insert per message + member upsert
 - **Message deletion** — deletes from Discord via API, marks as `deleted` in DB, logged to `actionlogs` table. Deleted messages remain visible with a `(deleted)` tag.
+- **Message edit tracking** — `messageUpdate` event logs old/new content to `message_edits` table, updates `messages.content`. Shows `(edited)` tag in messages pane with "Edits" button that opens the Edit History pane with a diff view.
+- **Edit History** — dedicated pane showing all message edits across channels. Table with time, author, channel, message ID, old/new content. "View" button shows inline diff view. Auto-refreshes. Filterable by message ID and author.
+- **Messages auto-refresh** — messages pane auto-refreshes every 10 seconds with countdown. Only re-renders if data actually changed (compares message IDs + content + deleted status). Old messages stay visible during fetch to prevent page jumps.
+- **Messages channel name** — in "All Channels" mode, each message shows its channel name. Clicking the channel name switches to that specific channel.
 - **Action log** — tracks manual deletes, audit log events (kicks, bans, channel changes, automod), and message removal events in the `actionlogs` table.
 - **Backfill** uses batched inserts via `db.transaction()` and `INSERT OR IGNORE` for idempotency
 - **CSS theming** via `var(--primary)`, `var(--surface)`, etc. in `frontend/src/app.css`. Never hardcode colors in components.
 - **Font Awesome** via `@fortawesome/fontawesome-free` — icons used in pane headers and various controls.
 - **Chart.js** for analytics charts (8 charts: messages/day, new users/day, messages per channel pie, DOW, top posters, activity by hour, deleted vs active, role distribution). Date range selector, timezone display. Lock/unlock toggle for chart reordering.
-- **Settings** stored in `rb-zero-settings` in localStorage: `showTips` (toggle pane descriptions), `showQuickSearch`.
+- **Settings** stored in `rb-zero-settings` in localStorage: `showTips` (toggle pane descriptions).
 - **Avatar popup** — clicking any avatar shows a lightbox with `?size=512` version, copy URL, and save buttons.
 - **AI Scan** — user scan with 5 structured scores (risk, nice, weird, spammer, AI/LLM). Auto-loads cached results. Force re-scan button.
 - **AI Channel Summary** — auto-loads cached summary on channel select. Force re-summarize button. Shows channel name, message count, fresh/cached badge.
 - **AI Guild Scan** — scans all channels for suspicious users. Caching with new-message detection.
 - **AI Chat** — toggle to enable/disable. When enabled, mentioning the bot triggers an AI response using recent channel context. Responses prefixed with `**LLM OUTPUT:**`. 30-second timeout. Chat history visible in pane with delete (removes from Discord too). Per-guild prompt editor (max 1024 chars, stored as `aichat_prompt` in config table, "Reset to default" button). When disabled, bot replies with "Hi, I'm rb-zero. Created by Replicat. My 'brain' is currently disabled. Beep boop."
 - **AI Image Describe** — toggle to enable/disable per guild (`aiimagedescribe_enabled` in config table). When enabled, any image uploaded to the server triggers an AI vision API call to describe the image. Uses `config.imageDescribe.model` (separate from chat model). Replies with "This image looks like: <description>" followed by the accessibility disclaimer. Limits to 4 images per message, 30s timeout.
-- **Config via `src/config.json`** — port, sessionSecret, Discord credentials, OpenRouter API key/model (`chat`, `scan`, `imageDescribe`), AI scan truncation/temperature settings. `.env` no longer used.
+- **Deep Scan** — cross-guild user report. Scans all guilds the bot is in (not restricted by dashboard user permissions). Shows total messages across all guilds, guild count, and per-guild breakdown with role, join date, and message count. Triggered on demand from the User Scan pane via "Deep Scan" button.
+- **Config via `src/config.json`** — port, sessionSecret, Discord credentials, OpenRouter API key/model, `llmText` (truncation/temperature for text-based LLM features: ai-scan, ai-channel-summary, ai-guild-scan, ai-chat), `imageDescribe.model` (vision model for image description). `.env` no longer used.
 - **Database** — stores AI scans, channel summaries, guild scans, and AI chat logs in the `reports` and `ai_chat_log` tables. Old env files removed.
 
 ## Auth

@@ -28,6 +28,8 @@
   let aiScanLoading = false;
   let aiScanHtml = '';
   let aiScanCached = false;
+  let deepScanResult = null;
+  let deepScanLoading = false;
 
   function renderMarkdown(text) {
     if (!text) return '';
@@ -52,6 +54,7 @@
     analysisError = '';
     analysis = null;
     clearAiScan();
+    deepScanResult = null;
     try {
       const r = await fetch(`/api/guild/${guildId}/user-analysis/${userId}`);
       if (!r.ok) throw new Error(await r.text());
@@ -196,11 +199,27 @@
     }
   }
 
+  async function runDeepScan() {
+    if (!analysis) return;
+    deepScanLoading = true;
+    deepScanResult = null;
+    try {
+      const r = await fetch(`/api/deep-scan/${analysis.userId}`);
+      if (!r.ok) throw new Error(await r.text());
+      deepScanResult = await r.json();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      deepScanLoading = false;
+    }
+  }
+
   function closeAnalysis() {
     analysis = null;
     analysisLoading = false;
     analysisError = '';
     viewingPastId = null;
+    deepScanResult = null;
   }
 
   function downloadAnalysis() {
@@ -290,6 +309,7 @@
         <div class="analysis-actions-inline">
           <button class="btn-sm" on:click={() => viewMessages(analysis.userId)}><i class="fa-solid fa-message"></i> Messages</button>
           <button class="btn-sm" on:click={() => runAiScan(aiScanCached)} disabled={aiScanLoading}><i class="fa-solid fa-microchip"></i> {aiScanLoading ? 'Scanning...' : aiScanCached ? 'Re-scan' : 'AI Scan'}</button>
+          <button class="btn-sm" on:click={runDeepScan} disabled={deepScanLoading}><i class="fa-solid fa-globe"></i> {deepScanLoading ? 'Scanning...' : 'Deep Scan'}</button>
           <button class="btn-sm" on:click={downloadAnalysis}>CSV</button>
           <button class="btn-sm" on:click={closeAnalysis}>Close</button>
         </div>
@@ -366,6 +386,36 @@
         </div>
       {/if}
     </div>
+    {#if deepScanResult}
+      <div class="deep-scan-section">
+        <div class="deep-scan-header">
+          <span class="deep-scan-title"><i class="fa-solid fa-globe"></i> Deep Scan — {deepScanResult.totalGuilds} guild(s), {deepScanResult.totalMessages} total message(s)</span>
+          <button class="btn-sm" on:click={() => deepScanResult = null}>Close</button>
+        </div>
+        <div class="table-scroll">
+          <table class="responsive-table">
+            <thead>
+              <tr>
+                <th>Guild</th>
+                <th>Role</th>
+                <th>Joined</th>
+                <th>Messages</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each deepScanResult.guilds as g}
+                <tr>
+                  <td>{g.guildName}</td>
+                  <td>{g.topRole || '—'}</td>
+                  <td class="nowrap">{g.joinDate ? new Date(g.joinDate).toLocaleDateString() : 'N/A'}</td>
+                  <td>{g.messageCount}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    {/if}
   {:else}
     <p style="color:var(--text-muted)">Search for a user above to scan them.</p>
   {/if}
@@ -590,6 +640,9 @@
   .responsive-table tr:hover td { background: var(--surface-alt); }
   .nowrap { white-space: nowrap; }
   .action-cell { white-space: nowrap; }
+  .deep-scan-section { margin-top: 0.5rem; border: 1px solid var(--surface-alt); border-radius: 6px; overflow: hidden; }
+  .deep-scan-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.5rem 0.75rem; background: var(--surface-alt); }
+  .deep-scan-title { font-size: 0.85rem; font-weight: 600; color: var(--text-bright); display: flex; align-items: center; gap: 0.4rem; }
   @media (max-width: 640px) {
     .table-scroll { max-height: 300px; }
     .analysis-top { flex-direction: column; align-items: flex-start; }

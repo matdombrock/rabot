@@ -63,6 +63,46 @@ export function createWebServer(client: Client) {
     }
   });
 
+  // ── Deep scan (cross-guild, requires auth) ──
+
+  app.get("/api/deep-scan/:userId", requireAuth, async (req, res) => {
+    try {
+      const targetUserId = req.params.userId;
+      const guildResults: { guildId: string; guildName: string; username: string; displayName: string; avatarUrl: string; topRole: string; joinDate: string | null; messageCount: number }[] = [];
+      let totalMessages = 0;
+
+      for (const guild of client.guilds.cache.values()) {
+        const db = getGuildDb(guild.id);
+        const member = db.prepare("SELECT id, username, display_name, avatar_url, top_role, guild_join_date FROM members WHERE id = ?").get(targetUserId) as { id: string; username: string; display_name: string; avatar_url: string; top_role: string; guild_join_date: string } | undefined;
+        if (!member) continue;
+
+        const msgRow = db.prepare("SELECT COUNT(*) as count FROM messages WHERE author_id = ?").get(targetUserId) as { count: number };
+        totalMessages += msgRow.count;
+
+        guildResults.push({
+          guildId: guild.id,
+          guildName: guild.name,
+          username: member.username,
+          displayName: member.display_name,
+          avatarUrl: member.avatar_url,
+          topRole: member.top_role,
+          joinDate: member.guild_join_date,
+          messageCount: msgRow.count,
+        });
+      }
+
+      res.json({
+        userId: targetUserId,
+        totalMessages,
+        totalGuilds: guildResults.length,
+        guilds: guildResults,
+      });
+    } catch (err) {
+      console.error("Deep scan failed:", err);
+      res.status(500).json({ error: "Failed to run deep scan" });
+    }
+  });
+
   // ── Guild-scoped routes ──
 
   app.get("/api/guild/:guildId/channels", async (req, res) => {
