@@ -64,7 +64,7 @@ M9. **Missing foreign keys on guild tables** (`src/db.ts:62-232`) — `foreign_k
 
 M10. **Missing indexes on log tables** (`src/db.ts:97-157`) — `modlogs`, `saylogs`, and `textfilter_logs` all have `ORDER BY timestamp DESC` queries but no index on `timestamp`. Full table scan + sort on every log pane open.
 
-M11. ~~**`reports.total_members` stores message count** (`src/db.ts:92`) — In guild-scan reports, `total_members` is set to `COUNT(*) FROM messages`, not member count. Column name is misleading.~~ **Fixed:** Column removed from schema, code now uses `message_count` consistently.
+M11. **`reports.total_members` stores message count** (`src/db.ts:92`) — In guild-scan reports, `total_members` is set to `COUNT(*) FROM messages`, not member count. Column name is misleading. **Fixed:** Column removed from schema, code now uses `message_count` consistently.
 
 ## Low
 
