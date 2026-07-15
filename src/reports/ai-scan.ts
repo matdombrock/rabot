@@ -185,8 +185,8 @@ export function saveAiScanResult(
   spammerScore: number | null, aiScore: number | null,
 ) {
   const db = getGuildDb(guildId);
-  db.prepare(`INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv, ai_scan, risk_score, nice_score, weird_score, spammer_score, ai_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-    crypto.randomUUID(), guildName, "ai-scan", new Date().toISOString(), 0, username, "", analysis,
+  db.prepare(`INSERT INTO reports (id, guild_name, type, generated, username, csv, ai_scan, risk_score, nice_score, weird_score, spammer_score, ai_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    crypto.randomUUID(), guildName, "ai-scan", new Date().toISOString(), username, "", analysis,
     riskScore, niceScore, weirdScore, spammerScore, aiScore
   );
 }

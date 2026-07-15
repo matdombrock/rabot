@@ -51,10 +51,10 @@ export async function getChannelSummary(
   // Check for existing summary (unless forced)
   if (!force) {
     const existing = db.prepare(`
-      SELECT id, generated, message_count, total_members, ai_scan FROM reports
+      SELECT id, generated, message_count, ai_scan FROM reports
       WHERE type = 'channel-summary' AND channel_id = ?
       ORDER BY generated DESC LIMIT 1
-    `).get(channelId) as { id: string; generated: string; message_count: number; total_members: number; ai_scan: string } | undefined;
+    `).get(channelId) as { id: string; generated: string; message_count: number; ai_scan: string } | undefined;
 
     if (existing) {
       const newestMsg = db.prepare(`
@@ -70,7 +70,7 @@ export async function getChannelSummary(
             channelId,
             channelName,
             summary: existing.ai_scan,
-            messageCount: existing.total_members || existing.message_count,
+            messageCount: existing.message_count,
             generated: existing.generated,
             cached: true,
             reportId: existing.id,
@@ -132,8 +132,8 @@ export async function getChannelSummary(
     const reportId = crypto.randomUUID();
     const generated = new Date().toISOString();
     const totalInChannel = db.prepare(`SELECT COUNT(*) as count FROM messages WHERE channel_id = ?`).get(channelId) as { count: number } | undefined;
-    db.prepare(`INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv, ai_scan, message_count, channel_id, channel_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      reportId, guild.name, "channel-summary", generated, totalInChannel?.count ?? 0, "", "", summary, messageLines.length, channelId, channelName
+    db.prepare(`INSERT INTO reports (id, guild_name, type, generated, username, csv, ai_scan, message_count, channel_id, channel_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      reportId, guild.name, "channel-summary", generated, "", "", summary, totalInChannel?.count ?? 0, channelId, channelName
     );
 
     return {

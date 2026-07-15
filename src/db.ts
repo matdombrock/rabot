@@ -89,7 +89,6 @@ export function getGuildDb(guildId: string): DbType {
       guild_name TEXT NOT NULL,
       type TEXT NOT NULL,
       generated TEXT NOT NULL,
-      total_members INTEGER DEFAULT 0,
       username TEXT NOT NULL DEFAULT '',
       csv TEXT NOT NULL
     );

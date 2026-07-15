@@ -550,7 +550,7 @@ export function createWebServer(client: Client) {
   app.get("/api/guild/:guildId/history", async (req, res) => {
     try {
       const db = getGuildDb(req.params.guildId);
-      const rows = db.prepare("SELECT id, guild_name, type, generated, total_members, username, message_count, channel_id FROM reports ORDER BY generated DESC").all();
+      const rows = db.prepare("SELECT id, guild_name, type, generated, username, message_count, channel_id FROM reports ORDER BY generated DESC").all();
       res.json(rows);
     } catch (err) {
       console.error("History fetch failed:", err);
@@ -591,8 +591,8 @@ export function createWebServer(client: Client) {
       const { generateUserAnalysis } = await import("../reports/user-analysis.js");
       const result = await generateUserAnalysis(guild, req.params.userId);
       const db = getGuildDb(req.params.guildId);
-      db.prepare("INSERT INTO reports (id, guild_name, type, generated, total_members, username, csv) VALUES (?, ?, ?, ?, ?, ?, ?)").run(
-        crypto.randomUUID(), guild.name, "analysis", result.generated, 1, result.username, result.csv
+      db.prepare("INSERT INTO reports (id, guild_name, type, generated, username, csv) VALUES (?, ?, ?, ?, ?, ?)").run(
+        crypto.randomUUID(), guild.name, "analysis", result.generated, result.username, result.csv
       );
       res.json(result);
     } catch (err) {
