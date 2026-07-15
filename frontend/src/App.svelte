@@ -29,34 +29,34 @@
 
   // Pane definitions — name must be unique and stable for localStorage keys
   const paneDefs = [
-    { key: 'ai-chat', title: 'AI Chat', description: 'Let users chat with AI by mentioning the bot', icon: 'fa-comment-dots', component: AiChat },
-    { key: 'ai-image-describe', title: 'AI Image Describe', description: 'Automatically describe uploaded images using AI for accessibility', icon: 'fa-image', component: ImageDescribe },
-    { key: 'bot-status', title: 'Bot Status', description: 'Bot tag, Node version, uptime, WS latency, and ping', icon: 'fa-robot', component: BotStatus },
-    { key: 'user-analysis', title: 'User Scan', description: 'Search, view, and manage per-user scans', icon: 'fa-magnifying-glass', component: UserAnalysis },
-    { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns and filters', icon: 'fa-users', component: QuickReport, props: {} },
-    { key: 'say', title: 'Say', description: 'Send messages to a channel with send history', icon: 'fa-comment', component: Say },
-    { key: 'image-filter', title: 'Image Filter', description: 'Manage SHA256 checksum watchlist and view moderation log', icon: 'fa-image', component: ImageFilter },
-    { key: 'channel-summary', title: 'AI Channel Summary', description: 'AI-powered summary of recent channel activity', icon: 'fa-hashtag', component: ChannelSummary },
-    { key: 'guild-scan', title: 'AI Guild Scan', description: 'Scan all channels for potentially malicious users', icon: 'fa-shield-halved', component: GuildScan },
-    { key: 'analytics', title: 'Analytics', description: 'Server stats, user activity, and message trends with charts', icon: 'fa-chart-simple', component: Analytics },
-    { key: 'text-filter', title: 'Text Filter', description: 'Manage text pattern filters with warn/kick/ban actions', icon: 'fa-font', component: TextFilter },
-    { key: 'messages', title: 'Messages', description: 'Browse per-channel message history with search, filters, and export', icon: 'fa-message', component: Messages },
-    { key: 'settings', title: 'Settings', description: 'Configure dashboard and bot settings', icon: 'fa-gear', component: Settings },
-    { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', icon: 'fa-shield', component: ModLog },
-    { key: 'edit-history', title: 'Edit History', description: 'Track message edit history across all channels', icon: 'fa-pen-to-square', component: EditHistory },
-    { key: 'ref-table', title: 'Reference Table', description: 'Manage reference command entries (static text responses)', icon: 'fa-book', component: ReferenceTable },
-    { key: 'song-of-the-day', title: 'Song of the Day', description: 'Daily song suggestions and tracking', icon: 'fa-music', component: ComingSoon, props: { feature: 'Song of the Day' } },
-    { key: 'message-of-the-day', title: 'Message of the Day', description: 'Auto-published daily messages', icon: 'fa-bullhorn', component: ComingSoon, props: { feature: 'Message of the Day' } },
-    { key: 'question-of-the-day', title: 'Question of the Day', description: 'Daily prompts to spark conversation', icon: 'fa-circle-question', component: ComingSoon, props: { feature: 'Question of the Day' } },
-    { key: 'honeypot', title: 'Honeypot', description: 'Trap and monitor suspicious users', icon: 'fa-jar', component: ComingSoon, props: { feature: 'Honeypot' } },
-    { key: 'calendar', title: 'Calendar', description: 'Event scheduling and management', icon: 'fa-calendar', component: ComingSoon, props: { feature: 'Calendar' } },
-    { key: 'creator-notifications', title: 'Creator Notifications', description: 'Alerts for creator activity', icon: 'fa-bell', component: ComingSoon, props: { feature: 'Creator Notifications' } },
-    { key: 'music', title: 'Music (Jukebox)', description: 'Play music in voice channels', icon: 'fa-headphones', component: ComingSoon, props: { feature: 'Music' } },
-    { key: 'welcome-onboarding', title: 'Welcome & Onboarding', description: 'Custom welcome messages and onboarding flow', icon: 'fa-handshake', component: ComingSoon, props: { feature: 'Welcome & Onboarding' } },
-    { key: 'offboarding', title: 'Offboarding', description: 'Handle member departures and cleanup', icon: 'fa-door-open', component: ComingSoon, props: { feature: 'Offboarding' } },
-    { key: 'xp', title: 'XP', description: 'Experience points and leveling system', icon: 'fa-star', component: ComingSoon, props: { feature: 'XP' } },
-    { key: 'invite-tracking', title: 'Invite Tracking', description: 'Track who invited whom', icon: 'fa-link', component: ComingSoon, props: { feature: 'Invite Tracking' } },
-    { key: 'reaction-roles', title: 'Reaction Roles', description: 'Let users self-assign roles via reactions', icon: 'fa-face-smile', component: ComingSoon, props: { feature: 'Reaction Roles' } },
+    { key: 'ai-chat', title: 'AI Chat', description: 'Let users chat with AI by mentioning the bot', icon: 'fa-comment-dots', tag: 'beta', component: AiChat },
+    { key: 'ai-image-describe', title: 'AI Image Describe', description: 'Automatically describe uploaded images using AI for accessibility', icon: 'fa-image', tag: 'beta', component: ImageDescribe },
+    { key: 'bot-status', title: 'Bot Status', description: 'Bot tag, Node version, uptime, WS latency, and ping', icon: 'fa-robot', tag: 'beta', component: BotStatus },
+    { key: 'user-analysis', title: 'User Scan', description: 'Search, view, and manage per-user scans', icon: 'fa-magnifying-glass', tag: 'beta', component: UserAnalysis },
+    { key: 'user-list', title: 'User List', description: 'All guild members with sortable columns and filters', icon: 'fa-users', tag: 'beta', component: QuickReport, props: {} },
+    { key: 'say', title: 'Say', description: 'Send messages to a channel with send history', icon: 'fa-comment', tag: 'beta', component: Say },
+    { key: 'image-filter', title: 'Image Filter', description: 'Manage SHA256 checksum watchlist and view moderation log', icon: 'fa-image', tag: 'beta', component: ImageFilter },
+    { key: 'channel-summary', title: 'AI Channel Summary', description: 'AI-powered summary of recent channel activity', icon: 'fa-hashtag', tag: 'beta', component: ChannelSummary },
+    { key: 'guild-scan', title: 'AI Guild Scan', description: 'Scan all channels for potentially malicious users', icon: 'fa-shield-halved', tag: 'beta', component: GuildScan },
+    { key: 'analytics', title: 'Analytics', description: 'Server stats, user activity, and message trends with charts', icon: 'fa-chart-simple', tag: 'beta', component: Analytics },
+    { key: 'text-filter', title: 'Text Filter', description: 'Manage text pattern filters with warn/kick/ban actions', icon: 'fa-font', tag: 'beta', component: TextFilter },
+    { key: 'messages', title: 'Messages', description: 'Browse per-channel message history with search, filters, and export', icon: 'fa-message', tag: 'beta', component: Messages },
+    { key: 'settings', title: 'Settings', description: 'Configure dashboard and bot settings', icon: 'fa-gear', tag: 'beta', component: Settings },
+    { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', icon: 'fa-shield', tag: 'beta', component: ModLog },
+    { key: 'edit-history', title: 'Edit History', description: 'Track message edit history across all channels', icon: 'fa-pen-to-square', tag: 'beta', component: EditHistory },
+    { key: 'ref-table', title: 'Reference Table', description: 'Manage reference command entries (static text responses)', icon: 'fa-book', tag: 'beta', component: ReferenceTable },
+    { key: 'song-of-the-day', title: 'Song of the Day', description: 'Daily song suggestions and tracking', icon: 'fa-music', tag: 'soon', component: ComingSoon, props: { feature: 'Song of the Day' } },
+    { key: 'message-of-the-day', title: 'Message of the Day', description: 'Auto-published daily messages', icon: 'fa-bullhorn', tag: 'soon', component: ComingSoon, props: { feature: 'Message of the Day' } },
+    { key: 'question-of-the-day', title: 'Question of the Day', description: 'Daily prompts to spark conversation', icon: 'fa-circle-question', tag: 'soon', component: ComingSoon, props: { feature: 'Question of the Day' } },
+    { key: 'honeypot', title: 'Honeypot', description: 'Trap and monitor suspicious users', icon: 'fa-jar', tag: 'soon', component: ComingSoon, props: { feature: 'Honeypot' } },
+    { key: 'calendar', title: 'Calendar', description: 'Event scheduling and management', icon: 'fa-calendar', tag: 'soon', component: ComingSoon, props: { feature: 'Calendar' } },
+    { key: 'creator-notifications', title: 'Creator Notifications', description: 'Alerts for creator activity', icon: 'fa-bell', tag: 'soon', component: ComingSoon, props: { feature: 'Creator Notifications' } },
+    { key: 'music', title: 'Music (Jukebox)', description: 'Play music in voice channels', icon: 'fa-headphones', tag: 'soon', component: ComingSoon, props: { feature: 'Music' } },
+    { key: 'welcome-onboarding', title: 'Welcome & Onboarding', description: 'Custom welcome messages and onboarding flow', icon: 'fa-handshake', tag: 'soon', component: ComingSoon, props: { feature: 'Welcome & Onboarding' } },
+    { key: 'offboarding', title: 'Offboarding', description: 'Handle member departures and cleanup', icon: 'fa-door-open', tag: 'soon', component: ComingSoon, props: { feature: 'Offboarding' } },
+    { key: 'xp', title: 'XP', description: 'Experience points and leveling system', icon: 'fa-star', tag: 'soon', component: ComingSoon, props: { feature: 'XP' } },
+    { key: 'invite-tracking', title: 'Invite Tracking', description: 'Track who invited whom', icon: 'fa-link', tag: 'soon', component: ComingSoon, props: { feature: 'Invite Tracking' } },
+    { key: 'reaction-roles', title: 'Reaction Roles', description: 'Let users self-assign roles via reactions', icon: 'fa-face-smile', tag: 'soon', component: ComingSoon, props: { feature: 'Reaction Roles' } },
   ];
 
   // Map for quick lookup
@@ -376,6 +376,7 @@
         <Card
           title={pane.title}
           icon={pane.icon}
+          tag={pane.tag}
           description={dashboardSettings.showTips !== false ? pane.description : ''}
           collapseAll={!!paneSearch}
           collapsedState={paneCollapsed[pane.key]}
@@ -387,6 +388,7 @@
         <Card
           title={pane.title}
           icon={pane.icon}
+          tag={pane.tag}
           description={dashboardSettings.showTips !== false ? pane.description : ''}
           expanded={!!analyzeUserId}
           forceOpen={scanKey}
@@ -400,6 +402,7 @@
         <Card
           title={pane.title}
           icon={pane.icon}
+          tag={pane.tag}
           description={pane.description}
           forceOpen={messagesUserId ? 1 : 0}
           collapseAll={!!paneSearch}
@@ -414,6 +417,7 @@
         <Card
           title={pane.title}
           icon={pane.icon}
+          tag={pane.tag}
           description={dashboardSettings.showTips !== false ? pane.description : ''}
           expanded={focusPaneKey === 'settings'}
           collapseAll={!!paneSearch}
@@ -428,6 +432,7 @@
         <Card
           title={pane.title}
           icon={pane.icon}
+          tag={pane.tag}
           description={dashboardSettings.showTips !== false ? pane.description : ''}
           forceOpen={editHistoryMessageFilter ? 1 : 0}
           collapseAll={!!paneSearch}
@@ -442,6 +447,7 @@
         <Card
           title={pane.title}
           icon={pane.icon}
+          tag={pane.tag}
           description={dashboardSettings.showTips !== false ? pane.description : ''}
           collapseAll={!!paneSearch}
           collapsedState={paneCollapsed[pane.key]}
