@@ -803,6 +803,68 @@ export function createWebServer(client: Client) {
     res.json({ ok: true });
   });
 
+  // ── Reference entries ──
+
+  app.get("/api/guild/:guildId/ref-entries", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const rows = db.prepare("SELECT tag, output FROM ref_entries ORDER BY tag").all();
+      res.json(rows);
+    } catch (err) {
+      console.error("Ref entries fetch failed:", err);
+      res.status(500).json({ error: "Failed to fetch ref entries" });
+    }
+  });
+
+  app.post("/api/guild/:guildId/ref-entries", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const { tag, output } = req.body;
+      if (!tag || typeof tag !== "string") { res.status(400).json({ error: "Missing tag" }); return; }
+      if (!output || typeof output !== "string") { res.status(400).json({ error: "Missing output" }); return; }
+      const existing = db.prepare("SELECT tag FROM ref_entries WHERE tag = ?").get(tag);
+      if (existing) { res.status(409).json({ error: "Tag already exists" }); return; }
+      db.prepare("INSERT INTO ref_entries (tag, output) VALUES (?, ?)").run(tag.trim(), output);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Ref entry create failed:", err);
+      res.status(500).json({ error: "Failed to create ref entry" });
+    }
+  });
+
+  app.put("/api/guild/:guildId/ref-entries/:tag", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const oldTag = decodeURIComponent(req.params.tag);
+      const { tag, output } = req.body;
+      if (!tag || typeof tag !== "string") { res.status(400).json({ error: "Missing tag" }); return; }
+      if (!output || typeof output !== "string") { res.status(400).json({ error: "Missing output" }); return; }
+      if (tag.trim() !== oldTag) {
+        const conflict = db.prepare("SELECT tag FROM ref_entries WHERE tag = ?").get(tag.trim());
+        if (conflict) { res.status(409).json({ error: "Tag already exists" }); return; }
+      }
+      const result = db.prepare("UPDATE ref_entries SET tag = ?, output = ? WHERE tag = ?").run(tag.trim(), output, oldTag);
+      if (result.changes === 0) { res.status(404).json({ error: "Not found" }); return; }
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Ref entry update failed:", err);
+      res.status(500).json({ error: "Failed to update ref entry" });
+    }
+  });
+
+  app.delete("/api/guild/:guildId/ref-entries/:tag", async (req, res) => {
+    try {
+      const db = getGuildDb(req.params.guildId);
+      const tag = decodeURIComponent(req.params.tag);
+      const result = db.prepare("DELETE FROM ref_entries WHERE tag = ?").run(tag);
+      if (result.changes === 0) { res.status(404).json({ error: "Not found" }); return; }
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("Ref entry delete failed:", err);
+      res.status(500).json({ error: "Failed to delete ref entry" });
+    }
+  });
+
   // ── Text filter ──
 
   app.get("/api/guild/:guildId/textfilters", async (req, res) => {

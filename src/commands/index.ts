@@ -9,6 +9,7 @@ export async function loadCommands(): Promise<Collection<string, Command>> {
   const mods = await Promise.all([
     import("./ping.js"),
     import("./info.js"),
+    import("./ref.js"),
   ]);
 
   for (const mod of mods) {

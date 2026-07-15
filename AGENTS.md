@@ -50,6 +50,7 @@ Tables in `data.db`:
 | `actionlogs` | Manual mod actions + audit log events | On action |
 | `ai_chat_log` | AI chat history (Q&A pairs) | On AI chat response |
 | `message_edits` | Message edit history (message_id, channel_id, author_id, old_content, new_content, edited_at) | Live `messageUpdate` |
+| `ref_entries` | Reference command entries (tag PK, output text) — static text responses for `/ref` | Via web panel + `/ref` command |
 
 Tables in `db/auth.db`:
 
@@ -134,8 +135,9 @@ frontend/
         ├── Settings.svelte          # Dashboard/bot settings (localStorage + DB)
         ├── ModLog.svelte            # Action log for mod actions and audit events
         ├── EditHistory.svelte       # Message edit history with diff view
-        ├── Messages.svelte          # Per-channel message browser with pagination, filters, search, CSV export, HTML export
-        └── Login.svelte             # Login page (username/password form)
+    ├── Messages.svelte          # Per-channel message browser with pagination, filters, search, CSV export, HTML export
+    ├── ReferenceTable.svelte    # Reference command entries (tag/output table with CRUD)
+    └── Login.svelte             # Login page (username/password form)
 ```
 
 ## Key Patterns

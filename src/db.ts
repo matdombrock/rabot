@@ -224,6 +224,13 @@ export function getGuildDb(guildId: string): DbType {
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_message_edits_channel ON message_edits(channel_id)"); } catch {}
   try { db.exec("CREATE INDEX IF NOT EXISTS idx_message_edits_edited_at ON message_edits(edited_at)"); } catch {}
 
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS ref_entries (
+      tag TEXT PRIMARY KEY,
+      output TEXT NOT NULL
+    );
+  `);
+
   guildDbs.set(guildId, db);
   return db;
 }

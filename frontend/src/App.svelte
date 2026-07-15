@@ -19,6 +19,7 @@
   import Login from './lib/Login.svelte'
   import ImageDescribe from './lib/ImageDescribe.svelte'
   import EditHistory from './lib/EditHistory.svelte'
+  import ReferenceTable from './lib/ReferenceTable.svelte'
 
   const STORAGE_KEY = 'rb-zero-last-guild-id';
   const ORDER_KEY = 'rb-zero-pane-order';
@@ -42,6 +43,7 @@
     { key: 'settings', title: 'Settings', description: 'Configure dashboard and bot settings', icon: 'fa-gear', component: Settings },
     { key: 'mod-log', title: 'Mod Log', description: 'Track manual mod actions like message deletions and audit log events', icon: 'fa-shield', component: ModLog },
     { key: 'edit-history', title: 'Edit History', description: 'Track message edit history across all channels', icon: 'fa-pen-to-square', component: EditHistory },
+    { key: 'ref-table', title: 'Reference Table', description: 'Manage reference command entries (static text responses)', icon: 'fa-book', component: ReferenceTable },
   ];
 
   // Map for quick lookup
