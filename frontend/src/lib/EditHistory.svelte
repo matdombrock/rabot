@@ -1,5 +1,5 @@
 <script>
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onDestroy } from 'svelte';
   const dispatch = createEventDispatcher();
   import AvatarPopup from './AvatarPopup.svelte';
 
@@ -35,6 +35,7 @@
 
   $: if (guildId) { loadEdits(); startRefresh(); }
   $: if (messageFilter && guildId) { loadEdits(); }
+  onDestroy(stopRefresh);
 
   async function loadEdits(append = false) {
     if (!guildId) return;

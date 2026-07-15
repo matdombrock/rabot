@@ -63,7 +63,7 @@ const messageCreate: Event = {
 
     // ── Live tracking ──
 
-    db.prepare(`INSERT INTO messages (id, channel_id, author_id, content, created_at) VALUES (?, ?, ?, ?, ?)`).run(
+    db.prepare(`INSERT OR IGNORE INTO messages (id, channel_id, author_id, content, created_at) VALUES (?, ?, ?, ?, ?)`).run(
       message.id, message.channelId, message.author.id, message.content || '[no text content]', message.createdTimestamp
     );
 

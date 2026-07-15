@@ -10,7 +10,7 @@ C3. **Path traversal via `guildId`** (`src/db.ts:57`) — `getGuildDb()` calls `
 
 C4. **XSS via `marked` + `{@html}`** (`frontend/src/lib/UserAnalysis.svelte:385`, `ChannelSummary.svelte:150`, `GuildScan.svelte:181`) — AI-generated markdown is rendered as raw HTML via `{@html marked(...)}` with no DOMPurify sanitization. Prompt injection or a compromised API response could execute arbitrary scripts in the panel.
 
-C5. **`checksums` table has no primary key or unique constraint** (`src/db.ts:124-127`) — Every query does a full table scan. Concurrent inserts can create duplicate checksums — the application-level duplicate check at `server.ts:773` is a TOCTOU race. Should be `checksum TEXT PRIMARY KEY`.
+C5. **`checksums` table has no primary key or unique constraint** (`src/db.ts:124-127`) — Every query does a full table scan. Concurrent inserts can create duplicate checksums — the application-level duplicate check at `server.ts:773` is a TOCTOU race. Should be `checksum TEXT PRIMARY KEY`. **Fixed:** Added PRIMARY KEY to CREATE TABLE.
 
 C6. **`reports` is a polymorphic table** (`src/db.ts:87-95`) — Stores 5+ report types (user analysis, AI scans, channel summaries, guild scans) in one table with a `type` discriminator. Columns like `risk_score`, `guild_toxicity_score`, `channel_id` are NULL for unrelated types. Requires 19 `ALTER TABLE` migrations to add columns that only apply to specific types. Should be split into separate tables (`ai_scans`, `channel_summaries`, `guild_scans`, `legacy_reports`).
 
@@ -28,9 +28,9 @@ H5. **No global error handlers** (`src/index.ts:46`) — No `process.on('uncaugh
 
 H6. **Uncaught promise rejections in event handlers** (`src/events/messageCreate.ts`, `messageUpdate.ts`, `messageDelete.ts`) — `async` execute functions registered via `client.on()` produce unhandled rejections if any `await` throws. These can crash the process.
 
-H7. **EditHistory interval leak** (`frontend/src/lib/EditHistory.svelte`) — Defines `startRefresh()`/`stopRefresh()` but never calls `onDestroy(stopRefresh)`. Intervals continue running after unmount.
+H7. **EditHistory interval leak** (`frontend/src/lib/EditHistory.svelte`) — Defines `startRefresh()`/`stopRefresh()` but never calls `onDestroy(stopRefresh)`. Intervals continue running after unmount. **Fixed:** Added `onDestroy(stopRefresh)`.
 
-H8. **Duplicate `load()` call in Analytics** (`frontend/src/lib/Analytics.svelte:80,110`) — Two identical reactive statements cause `load()` to fire twice on every guild change.
+H8. **Duplicate `load()` call in Analytics** (`frontend/src/lib/Analytics.svelte:80,110`) — Two identical reactive statements cause `load()` to fire twice on every guild change. **Fixed:** Removed duplicate reactive statement at line 110.
 
 H9. **CSV injection in user-analysis export** (`src/reports/user-analysis.ts:59-75`) — User-controlled values interpolated without escaping CSV injection prefixes (`=`, `+`, `-`, `@`). `quick-report.ts` has a `csvEscape` helper but `user-analysis.ts` doesn't use it.
 
@@ -40,7 +40,7 @@ H11. **Missing index on `sessions.user_id`** (`src/auth.ts:33-38`) — `DELETE F
 
 H12. **Missing index on `ai_chat_log`** (`src/db.ts:184-194`) — `SELECT ... WHERE guild_id = ? ORDER BY created_at DESC` does a full table scan every time the AI Chat pane is opened. Needs `CREATE INDEX idx_aichatlog_guild_time ON ai_chat_log(guild_id, created_at DESC)`.
 
-H13. **Non-idempotent INSERT on `messages`** (`src/events/messageCreate.ts:66`) — Uses plain `INSERT` instead of `INSERT OR IGNORE`. Discord gateway retries on duplicate message IDs will throw. Backfill correctly uses `INSERT OR IGNORE`.
+H13. **Non-idempotent INSERT on `messages`** (`src/events/messageCreate.ts:66`) — Uses plain `INSERT` instead of `INSERT OR IGNORE`. Discord gateway retries on duplicate message IDs will throw. Backfill correctly uses `INSERT OR IGNORE`. **Fixed:** Changed to `INSERT OR IGNORE`.
 
 ## Medium
 
@@ -68,11 +68,11 @@ M11. **`reports.total_members` stores message count** (`src/db.ts:92`) — In gu
 
 ## Low
 
-L1. **Dead `mainDb`** (`src/db.ts:47`) — LowDB is imported and `read()` called at startup but never used elsewhere.
+L1. **Dead `mainDb`** (`src/db.ts:47`) — LowDB is imported and `read()` called at startup but never used elsewhere. **Fixed:** Removed dead code.
 
 L2. **Hardcoded colors in Analytics** (`frontend/src/lib/Analytics.svelte:147+`) — Violates the project's own "never hardcode colors" rule.
 
-L3. **`@types/sharp` version mismatch** — `sharp@^0.35.3` but `@types/sharp@^0.31.1`.
+L3. **`@types/sharp` version mismatch** — `sharp@^0.35.3` but `@types/sharp@^0.31.1`. **Fixed:** Bumped to `^0.35.0`.
 
 L4. **CLI passwords visible in process listing** (`src/cli-users.ts:39`) — Passwords passed as CLI args are visible via `ps aux`.
 

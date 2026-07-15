@@ -106,8 +106,7 @@
     }
   }
 
-  // Reload when controls change
-  $: if (guildId && rangeDays) load();
+
 
   function renderCharts() {
     destroyCharts();

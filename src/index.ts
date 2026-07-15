@@ -1,10 +1,8 @@
 import { Client, Events, GatewayIntentBits } from "discord.js";
 import { config } from "./config.js";
 import { createWebServer } from "./web/server.js";
-import { mainDb } from "./db.js";
 
 async function main() {
-  await mainDb.read();
 
   const client = new Client({ intents: [
     GatewayIntentBits.Guilds,

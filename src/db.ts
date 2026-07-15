@@ -1,5 +1,3 @@
-import { Low } from "lowdb";
-import { JSONFile } from "lowdb/node";
 import Database from "better-sqlite3";
 import type { Database as DbType } from "better-sqlite3";
 import { mkdirSync } from "node:fs";
@@ -42,9 +40,6 @@ export interface SayLog {
   content: string;
   messageId: string;
 }
-
-// ── Main config (LowDB) ──
-export const mainDb = new Low(new JSONFile<{ settings: { guildId: string; guildName: string }[] }>("main.json"), { settings: [] });
 
 // ── Per-guild SQLite databases ──
 
@@ -121,7 +116,7 @@ export function getGuildDb(guildId: string): DbType {
     );
 
     CREATE TABLE IF NOT EXISTS checksums (
-      checksum TEXT NOT NULL,
+      checksum TEXT PRIMARY KEY,
       label TEXT NOT NULL DEFAULT ''
     );
 
