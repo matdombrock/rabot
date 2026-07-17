@@ -1,0 +1,66 @@
+=== Schema migration Fri Jul 17 02:17:28 AM PDT 2026 ===
+
+--- Guild: 1117591229429989387 (db/1117591229429989387/data.db) ---
+  [SKIP] reports.ai_scan — already exists
+  [SKIP] reports.risk_score — already exists
+  [SKIP] reports.nice_score — already exists
+  [SKIP] reports.weird_score — already exists
+  [SKIP] reports.spammer_score — already exists
+  [SKIP] reports.ai_score — already exists
+  [SKIP] reports.message_count — already exists
+  [SKIP] reports.channel_id — already exists
+  [SKIP] reports.channel_name — already exists
+  [SKIP] reports.guild_activity_score — already exists
+  [SKIP] reports.guild_health_score — already exists
+  [SKIP] reports.guild_toxicity_score — already exists
+  [SKIP] reports.guild_spam_score — already exists
+  [SKIP] reports.guild_engagement_score — already exists
+  [SKIP] members.watched — already exists
+  [SKIP] messages.deleted — already exists
+  [SKIP] ai_chat_log.response_message_id — already exists
+  [SKIP] ai_chat_log.ack_message_id — already exists
+
+--- Guild: 665136708261642261 (db/665136708261642261/data.db) ---
+  [SKIP] reports.ai_scan — already exists
+  [SKIP] reports.risk_score — already exists
+  [SKIP] reports.nice_score — already exists
+  [SKIP] reports.weird_score — already exists
+  [SKIP] reports.spammer_score — already exists
+  [SKIP] reports.ai_score — already exists
+  [SKIP] reports.message_count — already exists
+  [SKIP] reports.channel_id — already exists
+  [SKIP] reports.channel_name — already exists
+  [SKIP] reports.guild_activity_score — already exists
+  [SKIP] reports.guild_health_score — already exists
+  [SKIP] reports.guild_toxicity_score — already exists
+  [SKIP] reports.guild_spam_score — already exists
+  [SKIP] reports.guild_engagement_score — already exists
+  [SKIP] members.watched — already exists
+  [SKIP] messages.deleted — already exists
+  [SKIP] ai_chat_log.response_message_id — already exists
+  [SKIP] ai_chat_log.ack_message_id — already exists
+
+--- Guild: 989132567003426866 (db/989132567003426866/data.db) ---
+  [SKIP] reports.ai_scan — already exists
+  [SKIP] reports.risk_score — already exists
+  [SKIP] reports.nice_score — already exists
+  [SKIP] reports.weird_score — already exists
+  [SKIP] reports.spammer_score — already exists
+  [SKIP] reports.ai_score — already exists
+  [SKIP] reports.message_count — already exists
+  [SKIP] reports.channel_id — already exists
+  [SKIP] reports.channel_name — already exists
+  [SKIP] reports.guild_activity_score — already exists
+  [SKIP] reports.guild_health_score — already exists
+  [SKIP] reports.guild_toxicity_score — already exists
+  [SKIP] reports.guild_spam_score — already exists
+  [SKIP] reports.guild_engagement_score — already exists
+  [SKIP] members.watched — already exists
+  [SKIP] messages.deleted — already exists
+  [SKIP] ai_chat_log.response_message_id — already exists
+  [SKIP] ai_chat_log.ack_message_id — already exists
+
+=== Migration complete ===
+  Databases processed: 3
+  Errors: 0
+  Log: migrate-schema-20260717-021728.log

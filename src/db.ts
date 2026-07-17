@@ -73,7 +73,8 @@ export function getGuildDb(guildId: string): DbType {
       channel_id TEXT NOT NULL,
       author_id TEXT NOT NULL,
       content TEXT NOT NULL DEFAULT '',
-      created_at INTEGER NOT NULL
+      created_at INTEGER NOT NULL,
+      deleted INTEGER NOT NULL DEFAULT 0
     );
     CREATE INDEX IF NOT EXISTS idx_messages_author ON messages(author_id);
     CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id);
@@ -85,7 +86,21 @@ export function getGuildDb(guildId: string): DbType {
       type TEXT NOT NULL,
       generated TEXT NOT NULL,
       username TEXT NOT NULL DEFAULT '',
-      csv TEXT NOT NULL
+      csv TEXT NOT NULL,
+      ai_scan TEXT NOT NULL DEFAULT '',
+      risk_score INTEGER DEFAULT NULL,
+      nice_score INTEGER DEFAULT NULL,
+      weird_score INTEGER DEFAULT NULL,
+      spammer_score INTEGER DEFAULT NULL,
+      ai_score INTEGER DEFAULT NULL,
+      message_count INTEGER DEFAULT 0,
+      channel_id TEXT NOT NULL DEFAULT '',
+      channel_name TEXT NOT NULL DEFAULT '',
+      guild_activity_score INTEGER DEFAULT NULL,
+      guild_health_score INTEGER DEFAULT NULL,
+      guild_toxicity_score INTEGER DEFAULT NULL,
+      guild_spam_score INTEGER DEFAULT NULL,
+      guild_engagement_score INTEGER DEFAULT NULL
     );
 
     CREATE TABLE IF NOT EXISTS modlogs (
@@ -151,27 +166,7 @@ export function getGuildDb(guildId: string): DbType {
     );
   `);
 
-  try { db.exec("ALTER TABLE reports ADD COLUMN username TEXT NOT NULL DEFAULT ''"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN ai_scan TEXT NOT NULL DEFAULT ''"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN risk_score INTEGER DEFAULT NULL"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN nice_score INTEGER DEFAULT NULL"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN weird_score INTEGER DEFAULT NULL"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN spammer_score INTEGER DEFAULT NULL"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN ai_score INTEGER DEFAULT NULL"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN message_count INTEGER DEFAULT 0"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN channel_id TEXT NOT NULL DEFAULT ''"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN channel_name TEXT NOT NULL DEFAULT ''"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN guild_activity_score INTEGER DEFAULT NULL"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN guild_health_score INTEGER DEFAULT NULL"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN guild_toxicity_score INTEGER DEFAULT NULL"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN guild_spam_score INTEGER DEFAULT NULL"); } catch {}
-  try { db.exec("ALTER TABLE reports ADD COLUMN guild_engagement_score INTEGER DEFAULT NULL"); } catch {}
-  try { db.exec("ALTER TABLE members ADD COLUMN watched INTEGER DEFAULT 0"); } catch {}
-  try { db.exec("ALTER TABLE ai_chat_log ADD COLUMN response_message_id TEXT NOT NULL DEFAULT ''"); } catch {}
-  try { db.exec("ALTER TABLE ai_chat_log ADD COLUMN ack_message_id TEXT NOT NULL DEFAULT ''"); } catch {}
-
-  // Migration for messages.deleted column (added for delete-message feature)
-  try { db.exec("ALTER TABLE messages ADD COLUMN deleted INTEGER NOT NULL DEFAULT 0"); } catch {}
+  // Schema migrations for existing databases handled by tools/migrate-schema.sh
 
   // Manual action log for mod actions (message deletions, etc.)
   db.exec(`
@@ -184,6 +179,8 @@ export function getGuildDb(guildId: string): DbType {
       user_name TEXT NOT NULL DEFAULT '',
       question TEXT NOT NULL,
       response TEXT NOT NULL,
+      response_message_id TEXT NOT NULL DEFAULT '',
+      ack_message_id TEXT NOT NULL DEFAULT '',
       created_at TEXT NOT NULL
     );
 

@@ -2,6 +2,13 @@
 
 A Discord bot with a Svelte web control panel. Moderates images via SHA256 checksum matching, generates user analysis, and provides a web panel for management.
 
+## Tech Stack
+
+- **Runtime:** Node.js 26, TypeScript 7, ESM
+- **Backend:** Express 5, discord.js 14, better-sqlite3 (per-guild), LowDB 7 (backfill progress only)
+- **Frontend:** Svelte 5, Vite 8 (builds to `src/web/public/`)
+- **Dev:** tsx (runtime), tsc (typecheck)
+
 ## Setup
 
 ```bash
@@ -144,10 +151,6 @@ From the scan results, you can **View Messages** to jump to the Messages pane wi
 
 ## Database
 
-Two storage layers:
-
-**`db/main.json`** (LowDB) — global configuration only. Single JSON file.
-
 **`db/{guildId}/data.db`** (SQLite) — per-guild database with tables:
 
 | Table | Contents | Populated by |
@@ -164,6 +167,8 @@ Two storage layers:
 | `config` | Key/value settings (action, aichat_enabled) | Via web panel |
 | `ai_chat_log` | AI chat history (Q&A pairs) | On AI chat response |
 
+**`db/{guildId}/backfill.json`** (LowDB) — backfill progress tracking only. Used by `npm run backfill` to resume interrupted scans. Single JSON file per guild.
+
 Run `npm run backfill` once to scan all text channels and populate the message history. Set `GUILD_ID` in `.env` to target a single guild.
 
 ## Project Structure
@@ -171,7 +176,7 @@ Run `npm run backfill` once to scan all text channels and populate the message h
 ```
 src/
 ├── index.ts              # Entry point, starts client + web server
-├── db.ts                 # mainDb (LowDB) + getGuildDb() (SQLite factory)
+├── db.ts                 # getGuildDb() — SQLite factory per guild
 ├── backfill.ts           # One-time historical message scan
 ├── config.ts             # Env vars
 ├── deploy-commands.ts    # Registers slash commands
