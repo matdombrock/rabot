@@ -1,6 +1,6 @@
 # rb-zero
 
-A Discord bot with a Svelte web control panel. Moderates images via SHA256 checksum matching, generates user analysis, and provides a web panel for management.
+A Discord bot with a Svelte web control panel.
 
 ## Tech Stack
 
@@ -69,7 +69,7 @@ Tables in `db/auth.db`:
 
 ## Never
 
-- **Never add one-time migration code paths.** If the schema changes, document the breaking change and move on. Do not write code that checks for old schemas, fills in missing defaults, or migrates data on read.
+- **Never add one-time migration code paths.** If the schema changes, we need to create a one-time use .sh script to migrate the data in the existing database.
 - **Never hardcode colors in components** — use CSS custom properties from `frontend/src/app.css`
 - **Never commit `.env`, `db/`, or `node_modules/`** — they are in `.gitignore`
 
