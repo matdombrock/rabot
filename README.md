@@ -45,7 +45,52 @@ npm run build:frontend  # Frontend only (Svelte → static files)
 npm run typecheck
 ```
 
-`npm run start` boots the Discord bot and starts the web control panel at `http://localhost:3000`. Enter a guild ID at the top to start exploring.
+`npm run start` boots the Discord bot and starts the web control panel at `http://localhost:3000`.
+
+## Authentication & Access Control
+
+The web panel requires login. `db/auth.db` (SQLite) stores users, guild assignments, and session tokens.
+
+### First User
+
+```bash
+npm run user -- init
+```
+
+Prompts for username/password and creates the first superadmin account.
+
+### CLI User Management
+
+| Command | Description |
+|---|---|
+| `npm run user -- create <username> <password>` | Create a new user |
+| `npm run user -- delete <username>` | Delete a user |
+| `npm run user -- password <username> <newPassword>` | Reset password |
+| `npm run user -- superadmin <username> [on\|off]` | Toggle superadmin (default: on) |
+| `npm run user -- assign <username> <guildId>` | Grant guild access |
+| `npm run user -- revoke <username> <guildId>` | Remove guild access |
+| `npm run user -- list` | List all users with their guilds |
+
+### Access Model
+
+- **Superadmins** — access every guild the bot is in
+- **Regular users** — only see guilds explicitly assigned to them
+- Access is enforced via `requireAuth` + `requireGuildAccess` middleware on all `/api/guild/:guildId/*` routes
+
+### Sessions
+
+- httpOnly cookie (`session_token`), 30-day TTL
+- `POST /api/auth/login` to authenticate
+- `POST /api/auth/logout` to sign out
+- `GET /api/auth/me` returns the current user (username, superadmin flag, assigned guilds)
+
+### Web Login
+
+The login page is served at `/`. Superadmins can also manage users through the web UI (in settings).
+
+### No Password Reset Flow
+
+Passwords are reset via CLI only (`npm run user -- password`).
 
 ## Slash Commands
 
