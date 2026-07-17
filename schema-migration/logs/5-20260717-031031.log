@@ -1,0 +1,18 @@
+=== Schema migration 5: drop orphaned FTS tables Fri Jul 17 03:10:31 AM PDT 2026 ===
+
+--- Guild: 1117591229429989387 (db/1117591229429989387/data.db) ---
+  [DROP] messages_fts (virtual table + 5 shadow tables)
+  [OK]  All messages_fts tables removed
+
+--- Guild: 665136708261642261 (db/665136708261642261/data.db) ---
+  [SKIP] messages_fts does not exist — skipping
+
+--- Guild: 989132567003426866 (db/989132567003426866/data.db) ---
+  [DROP] messages_fts (virtual table + 5 shadow tables)
+  [OK]  All messages_fts tables removed
+
+=== Migration complete ===
+  Databases processed: 2
+  Databases skipped (no FTS): 1
+  Errors: 0
+  Log: ./schema-migration/logs/5-20260717-031031.log

@@ -6,3 +6,4 @@ src/web/public/
 src/config.json
 *.bak
 db-bak/
+scheme-migration/logs/
