@@ -1,6 +1,6 @@
 #! /bin/bash
 
-name=./db-`date +%s`-rmt.bak
+name=./db-bak/db-`date +%s`-rmt.bak
 
 rsync -av --progress root@n0fa.de:~/rabot/db $name
 

@@ -20,7 +20,7 @@
   async function loadLogs() {
     if (!guildId) return;
     try {
-      const r = await fetch(`/api/guild/${guildId}/saylogs`);
+      const r = await fetch(`/api/guild/${guildId}/logs/say`);
       if (!r.ok) throw new Error(await r.text());
       logs = await r.json();
       logStatus = logs.length ? `${logs.length} message(s)` : '';
@@ -52,7 +52,7 @@
 
   async function del(id) {
     if (!confirm('Delete this message from the server?')) return;
-    await fetch(`/api/guild/${guildId}/saylogs/${id}`, { method: 'DELETE' });
+    await fetch(`/api/guild/${guildId}/logs/say/${id}`, { method: 'DELETE' });
     await loadLogs();
   }
 

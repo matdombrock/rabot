@@ -9,19 +9,19 @@
 
   async function load() {
     if (!guildId) return;
-    const r = await fetch(`/api/guild/${guildId}/textfilters`);
+    const r = await fetch(`/api/guild/${guildId}/filters/text`);
     filters = await r.json();
   }
 
   async function loadLogs() {
     if (!guildId) return;
-    const r = await fetch(`/api/guild/${guildId}/textfilter-logs`);
+    const r = await fetch(`/api/guild/${guildId}/logs/textfilter`);
     logs = await r.json();
   }
 
   async function add() {
     if (!pattern.trim()) return;
-    await fetch(`/api/guild/${guildId}/textfilters`, {
+    await fetch(`/api/guild/${guildId}/filters/text`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pattern: pattern.trim(), action, label: label.trim() }),
@@ -32,7 +32,7 @@
   }
 
   async function remove(id) {
-    await fetch(`/api/guild/${guildId}/textfilters/${id}`, { method: 'DELETE' });
+    await fetch(`/api/guild/${guildId}/filters/text/${id}`, { method: 'DELETE' });
     load();
   }
 

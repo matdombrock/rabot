@@ -105,7 +105,7 @@ const messageCreateAiChat: Event = {
       // Log to DB
       const channelName = message.channel.isDMBased() ? "DM" : (message.channel as { name: string }).name ?? "unknown";
       db.prepare(
-        `INSERT INTO ai_chat_log (id, guild_id, channel_id, channel_name, user_id, user_name, question, response, created_at, response_message_id, ack_message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO log_ai_chat (id, guild_id, channel_id, channel_name, user_id, user_name, question, response, created_at, response_message_id, ack_message_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         crypto.randomUUID(),
         guildId,

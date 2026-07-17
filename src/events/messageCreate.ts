@@ -46,7 +46,7 @@ async function handleMatch(message: Message, matchedEntry: { checksum: string; l
     messagesDeleted: count,
   };
 
-  db.prepare(`INSERT INTO modlogs (id, timestamp, action, user_id, user_name, user_tag, checksum, label, channel_id, channel_name, guild_id, guild_name, messages_deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+  db.prepare(`INSERT INTO log_mod (id, timestamp, action, user_id, user_name, user_tag, checksum, label, channel_id, channel_name, guild_id, guild_name, messages_deleted) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
     log.id, log.timestamp, log.action, log.userId, log.userName, log.userTag, log.checksum, log.label, log.channelId, log.channelName, log.guildId, log.guildName, log.messagesDeleted
   );
 
@@ -80,7 +80,7 @@ const messageCreate: Event = {
 
     // ── Text filter check ──
 
-    const filters = db.prepare("SELECT id, pattern, action, label FROM textfilters").all() as { id: string; pattern: string; action: string; label: string }[];
+    const filters = db.prepare("SELECT id, pattern, action, label FROM filter_text").all() as { id: string; pattern: string; action: string; label: string }[];
     if (filters.length > 0 && message.content) {
       const contentLower = message.content.toLowerCase();
       for (const f of filters) {
@@ -97,7 +97,7 @@ const messageCreate: Event = {
             await guildMember?.ban({ deleteMessageSeconds: 0 }).catch(() => {});
           }
 
-          db.prepare(`INSERT INTO textfilter_logs (id, timestamp, action, user_id, user_name, user_tag, pattern, label, channel_id, channel_name, guild_id, guild_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+          db.prepare(`INSERT INTO log_textfilter (id, timestamp, action, user_id, user_name, user_tag, pattern, label, channel_id, channel_name, guild_id, guild_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
             crypto.randomUUID(), new Date().toISOString(), f.action, message.author.id, message.author.username, message.author.tag, f.pattern, f.label, message.channelId, message.channel.isDMBased() ? "DM" : (message.channel as any).name ?? "unknown", message.guildId ?? "", message.guild?.name ?? ""
           );
 
@@ -112,7 +112,7 @@ const messageCreate: Event = {
     const attachments = message.attachments.filter(isImageAttachment);
     if (attachments.size === 0) return;
 
-    const checksumRows = db.prepare("SELECT checksum, label FROM checksums").all() as { checksum: string; label: string }[];
+    const checksumRows = db.prepare("SELECT checksum, label FROM filter_image").all() as { checksum: string; label: string }[];
     if (checksumRows.length === 0) return;
 
     for (const [, attachment] of attachments) {

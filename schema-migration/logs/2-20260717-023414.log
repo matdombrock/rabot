@@ -1,0 +1,52 @@
+=== Schema migration 2: split reports table Fri Jul 17 02:34:14 AM PDT 2026 ===
+
+--- Guild: 1117591229429989387 (db/1117591229429989387/data.db) ---
+  [CREATE] rep_hist_full
+  [CREATE] rep_hist_analysis
+  [CREATE] rep_hist_ai_scan
+  [CREATE] rep_hist_channel_summary
+  [CREATE] rep_hist_guild_scan
+  [DATA] 7 rows in old reports table
+  [MIGRATE] 2 rows → rep_hist_analysis
+  [MIGRATE] 0 rows → rep_hist_ai_scan
+  [MIGRATE] 0 rows → rep_hist_channel_summary
+  [MIGRATE] 5 rows → rep_hist_guild_scan
+  [MIGRATE] 0 rows → rep_hist_full
+  [DROP] reports table
+  [OK]  Migration complete for guild 1117591229429989387
+
+--- Guild: 665136708261642261 (db/665136708261642261/data.db) ---
+  [CREATE] rep_hist_full
+  [CREATE] rep_hist_analysis
+  [CREATE] rep_hist_ai_scan
+  [CREATE] rep_hist_channel_summary
+  [CREATE] rep_hist_guild_scan
+  [DATA] 23 rows in old reports table
+  [MIGRATE] 4 rows → rep_hist_analysis
+  [MIGRATE] 1 rows → rep_hist_ai_scan
+  [MIGRATE] 0 rows → rep_hist_channel_summary
+  [MIGRATE] 18 rows → rep_hist_guild_scan
+  [MIGRATE] 0 rows → rep_hist_full
+  [DROP] reports table
+  [OK]  Migration complete for guild 665136708261642261
+
+--- Guild: 989132567003426866 (db/989132567003426866/data.db) ---
+  [CREATE] rep_hist_full
+  [CREATE] rep_hist_analysis
+  [CREATE] rep_hist_ai_scan
+  [CREATE] rep_hist_channel_summary
+  [CREATE] rep_hist_guild_scan
+  [DATA] 95 rows in old reports table
+  [MIGRATE] 70 rows → rep_hist_analysis
+  [MIGRATE] 18 rows → rep_hist_ai_scan
+  [MIGRATE] 4 rows → rep_hist_channel_summary
+  [MIGRATE] 3 rows → rep_hist_guild_scan
+  [MIGRATE] 0 rows → rep_hist_full
+  [DROP] reports table
+  [OK]  Migration complete for guild 989132567003426866
+
+=== Migration complete ===
+  Databases processed: 3
+  Databases skipped (already migrated): 0
+  Errors: 0
+  Log: ./schema-migration/logs/2-20260717-023414.log

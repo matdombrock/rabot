@@ -13,7 +13,7 @@
     if (!guildId) { logs = []; return; }
     loading = true;
     try {
-      const r = await fetch(`/api/guild/${guildId}/ai-chat`);
+      const r = await fetch(`/api/guild/${guildId}/logs/ai-chat`);
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       enabled = data.enabled;
@@ -29,7 +29,7 @@
 
   async function toggle() {
     try {
-      const r = await fetch(`/api/guild/${guildId}/ai-chat/toggle`, { method: 'PUT' });
+      const r = await fetch(`/api/guild/${guildId}/logs/ai-chat/toggle`, { method: 'PUT' });
       if (!r.ok) throw new Error(await r.text());
       const data = await r.json();
       enabled = data.enabled;
@@ -42,7 +42,7 @@
     saving = true;
     saveMsg = '';
     try {
-      const r = await fetch(`/api/guild/${guildId}/ai-chat/prompt`, {
+      const r = await fetch(`/api/guild/${guildId}/logs/ai-chat/prompt`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ prompt: promptDraft }),
@@ -66,7 +66,7 @@
   async function deleteLog(id) {
     if (!confirm('Delete this chat entry?')) return;
     try {
-      await fetch(`/api/guild/${guildId}/ai-chat/log/${id}`, { method: 'DELETE' });
+      await fetch(`/api/guild/${guildId}/logs/ai-chat/log/${id}`, { method: 'DELETE' });
       logs = logs.filter(l => l.id !== id);
     } catch (err) {
       console.error(err);

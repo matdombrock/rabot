@@ -1,7 +1,7 @@
 <script>
   export let guildId = '';
 
-  let checksums = [];
+  let entries = [];
   let action = 'ban';
   let newChecksum = '';
   let newLabel = '';
@@ -10,21 +10,21 @@
 
   async function load() {
     if (!guildId) return;
-    const r = await fetch(`/api/guild/${guildId}/checksums`);
+    const r = await fetch(`/api/guild/${guildId}/filters/image`);
     const data = await r.json();
-    checksums = data.checksums;
+    entries = data.entries;
     action = data.action;
   }
 
   async function loadLogs() {
     if (!guildId) return;
-    const r = await fetch(`/api/guild/${guildId}/modlogs`);
+    const r = await fetch(`/api/guild/${guildId}/logs/mod`);
     logs = await r.json();
     logStatus = logs.length ? `${logs.length} entries` : '';
   }
 
   async function saveAction() {
-    await fetch(`/api/guild/${guildId}/checksums/action`, {
+    await fetch(`/api/guild/${guildId}/filters/image/action`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action }),
@@ -33,7 +33,7 @@
 
   async function addChecksum() {
     if (!newChecksum.trim()) return;
-    await fetch(`/api/guild/${guildId}/checksums`, {
+    await fetch(`/api/guild/${guildId}/filters/image`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ checksum: newChecksum.trim(), label: newLabel.trim() }),
@@ -44,13 +44,13 @@
   }
 
   async function deleteChecksum(c) {
-    await fetch(`/api/guild/${guildId}/checksums/${c}`, { method: 'DELETE' });
+    await fetch(`/api/guild/${guildId}/filters/image/${c}`, { method: 'DELETE' });
     load();
   }
 
   async function clearLogs() {
     if (!confirm('Clear all mod log entries?')) return;
-    await fetch(`/api/guild/${guildId}/modlogs`, { method: 'DELETE' });
+    await fetch(`/api/guild/${guildId}/logs/mod`, { method: 'DELETE' });
     loadLogs();
   }
 
@@ -73,13 +73,13 @@
 </div>
 
 <div class="table-scroll">
-  {#if checksums.length === 0}
+  {#if entries.length === 0}
     <p style="color:var(--text-muted)">No checksums.</p>
   {:else}
     <table class="responsive-table">
       <thead><tr><th>SHA256</th><th>Label</th><th></th></tr></thead>
       <tbody>
-        {#each checksums as e}
+        {#each entries as e}
           <tr>
             <td class="mono-cell">{e.checksum}</td>
             <td>{e.label || ''}</td>

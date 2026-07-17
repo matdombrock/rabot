@@ -49,8 +49,8 @@ export async function generateAiScan(guild: Guild, userId: string, force = false
   // Check for existing scan if not forced
   if (!force) {
     const existing = db.prepare(`
-      SELECT id, generated, ai_scan, risk_score, nice_score, weird_score, spammer_score, ai_score FROM reports
-      WHERE type = 'ai-scan' AND username = ?
+      SELECT id, generated, ai_scan, risk_score, nice_score, weird_score, spammer_score, ai_score FROM rep_hist_ai_scan
+      WHERE username = ?
       ORDER BY generated DESC LIMIT 1
     `).get(username) as { id: string; generated: string; ai_scan: string; risk_score: number | null; nice_score: number | null; weird_score: number | null; spammer_score: number | null; ai_score: number | null } | undefined;
 
@@ -183,10 +183,11 @@ export function saveAiScanResult(
   guildId: string, guildName: string, username: string, analysis: string,
   riskScore: number | null, niceScore: number | null, weirdScore: number | null,
   spammerScore: number | null, aiScore: number | null,
+  messageCount = 0,
 ) {
   const db = getGuildDb(guildId);
-  db.prepare(`INSERT INTO reports (id, guild_name, type, generated, username, csv, ai_scan, risk_score, nice_score, weird_score, spammer_score, ai_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-    crypto.randomUUID(), guildName, "ai-scan", new Date().toISOString(), username, "", analysis,
+  db.prepare(`INSERT INTO rep_hist_ai_scan (id, guild_name, generated, username, message_count, ai_scan, risk_score, nice_score, weird_score, spammer_score, ai_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    crypto.randomUUID(), guildName, new Date().toISOString(), username, messageCount, analysis,
     riskScore, niceScore, weirdScore, spammerScore, aiScore
   );
 }

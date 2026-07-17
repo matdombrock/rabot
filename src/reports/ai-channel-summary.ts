@@ -51,8 +51,8 @@ export async function getChannelSummary(
   // Check for existing summary (unless forced)
   if (!force) {
     const existing = db.prepare(`
-      SELECT id, generated, message_count, ai_scan FROM reports
-      WHERE type = 'channel-summary' AND channel_id = ?
+      SELECT id, generated, message_count, ai_scan FROM rep_hist_channel_summary
+      WHERE channel_id = ?
       ORDER BY generated DESC LIMIT 1
     `).get(channelId) as { id: string; generated: string; message_count: number; ai_scan: string } | undefined;
 
@@ -132,8 +132,8 @@ export async function getChannelSummary(
     const reportId = crypto.randomUUID();
     const generated = new Date().toISOString();
     const totalInChannel = db.prepare(`SELECT COUNT(*) as count FROM messages WHERE channel_id = ?`).get(channelId) as { count: number } | undefined;
-    db.prepare(`INSERT INTO reports (id, guild_name, type, generated, username, csv, ai_scan, message_count, channel_id, channel_name) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      reportId, guild.name, "channel-summary", generated, "", "", summary, totalInChannel?.count ?? 0, channelId, channelName
+    db.prepare(`INSERT INTO rep_hist_channel_summary (id, guild_name, generated, channel_id, channel_name, message_count, ai_scan) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
+      reportId, guild.name, generated, channelId, channelName, totalInChannel?.count ?? 0, summary
     );
 
     return {

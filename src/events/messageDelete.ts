@@ -29,7 +29,7 @@ const messageDelete: Event = {
 
     // Check if this deletion was already recorded by our own delete endpoint
     // (the manual delete from the web panel already logs an actionlog entry)
-    const existing = db.prepare("SELECT id FROM actionlogs WHERE (action = 'message-delete' OR action = 'message-removed') AND target_id = ? AND timestamp > ?").get(authorId, new Date(Date.now() - 3000).toISOString()) as { id: string } | undefined;
+    const existing = db.prepare("SELECT id FROM log_action WHERE (action = 'message-delete' OR action = 'message-removed') AND target_id = ? AND timestamp > ?").get(authorId, new Date(Date.now() - 3000).toISOString()) as { id: string } | undefined;
     if (existing) {
       dedupCache.delete(dedupKey);
       return;
@@ -46,7 +46,7 @@ const messageDelete: Event = {
     const action = authorId ? "message-removed" : "message-purged";
 
     const logId = crypto.randomUUID();
-    db.prepare(`INSERT INTO actionlogs (id, guild_id, guild_name, timestamp, action, target_id, target_name, channel_id, channel_name, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    db.prepare(`INSERT INTO log_action (id, guild_id, guild_name, timestamp, action, target_id, target_name, channel_id, channel_name, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       logId,
       guildId,
       message.guild?.name ?? "",

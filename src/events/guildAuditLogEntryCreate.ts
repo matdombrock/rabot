@@ -95,7 +95,7 @@ const guildAuditLogEntryCreate: Event = {
     // (those are already logged as 'message-delete' by the API endpoint)
     if (action === AuditLogEvent.MessageDelete || action === AuditLogEvent.MessageBulkDelete) {
       const db = getGuildDb(guild.id);
-      const recent = db.prepare("SELECT id FROM actionlogs WHERE action = 'message-delete' AND timestamp > ?").get(new Date(Date.now() - 3000).toISOString()) as { id: string } | undefined;
+      const recent = db.prepare("SELECT id FROM log_action WHERE action = 'message-delete' AND timestamp > ?").get(new Date(Date.now() - 3000).toISOString()) as { id: string } | undefined;
       if (recent) return;
     }
 
@@ -129,7 +129,7 @@ const guildAuditLogEntryCreate: Event = {
     ].filter(Boolean).join(" ");
 
     const logId = crypto.randomUUID();
-    db.prepare(`INSERT INTO actionlogs (id, guild_id, guild_name, timestamp, action, target_id, target_name, channel_id, channel_name, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+    db.prepare(`INSERT INTO log_action (id, guild_id, guild_name, timestamp, action, target_id, target_name, channel_id, channel_name, details) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
       logId,
       guild.id,
       guild.name,

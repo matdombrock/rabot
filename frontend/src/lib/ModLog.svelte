@@ -8,7 +8,7 @@
     if (!guildId) { logs = []; return; }
     loading = true;
     try {
-      const r = await fetch(`/api/guild/${guildId}/actionlogs`);
+      const r = await fetch(`/api/guild/${guildId}/logs/action`);
       if (!r.ok) throw new Error(await r.text());
       logs = await r.json();
     } catch (err) {
@@ -21,7 +21,7 @@
   async function clear() {
     if (!confirm('Clear all action log entries?')) return;
     try {
-      await fetch(`/api/guild/${guildId}/actionlogs`, { method: 'DELETE' });
+      await fetch(`/api/guild/${guildId}/logs/action`, { method: 'DELETE' });
       logs = [];
     } catch (err) {
       console.error(err);

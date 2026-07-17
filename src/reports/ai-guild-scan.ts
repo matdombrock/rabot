@@ -36,8 +36,7 @@ export async function generateGuildScan(guild: Guild, force = false): Promise<Gu
   // Check for existing scan if not forced
   if (!force) {
     const existing = db.prepare(`
-      SELECT id, generated, message_count, ai_scan, guild_activity_score, guild_health_score, guild_toxicity_score, guild_spam_score, guild_engagement_score FROM reports
-      WHERE type = 'guild-scan'
+      SELECT id, generated, message_count, ai_scan, guild_activity_score, guild_health_score, guild_toxicity_score, guild_spam_score, guild_engagement_score FROM rep_hist_guild_scan
       ORDER BY generated DESC LIMIT 1
     `).get() as { id: string; generated: string; message_count: number; ai_scan: string; guild_activity_score: number | null; guild_health_score: number | null; guild_toxicity_score: number | null; guild_spam_score: number | null; guild_engagement_score: number | null } | undefined;
 
@@ -148,8 +147,8 @@ export async function generateGuildScan(guild: Guild, force = false): Promise<Gu
     // Save to reports table
     const reportId = crypto.randomUUID();
     const totalMsgs = db.prepare(`SELECT COUNT(*) as count FROM messages`).get() as { count: number } | undefined;
-    db.prepare(`INSERT INTO reports (id, guild_name, type, generated, username, csv, ai_scan, message_count, guild_activity_score, guild_health_score, guild_toxicity_score, guild_spam_score, guild_engagement_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
-      reportId, guild.name, "guild-scan", generated, "", "", summary, totalMsgs?.count ?? 0,
+    db.prepare(`INSERT INTO rep_hist_guild_scan (id, guild_name, generated, message_count, ai_scan, guild_activity_score, guild_health_score, guild_toxicity_score, guild_spam_score, guild_engagement_score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(
+      reportId, guild.name, generated, totalMsgs?.count ?? 0, summary,
       activityScore, healthScore, toxicityScore, spamScore, engagementScore
     );
 

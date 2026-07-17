@@ -4,16 +4,6 @@ import { mkdirSync } from "node:fs";
 
 export type Action = "ban" | "kick";
 
-export interface ReportRecord {
-  id: string;
-  guildId: string;
-  guildName: string;
-  type: "full" | "analysis";
-  generated: string;
-  totalMembers: number;
-  csv: string;
-}
-
 export interface ModLog {
   id: string;
   timestamp: string;
@@ -80,22 +70,54 @@ export function getGuildDb(guildId: string): DbType {
     CREATE INDEX IF NOT EXISTS idx_messages_channel ON messages(channel_id);
     CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at);
 
-    CREATE TABLE IF NOT EXISTS reports (
+    CREATE TABLE IF NOT EXISTS rep_hist_full (
       id TEXT PRIMARY KEY,
       guild_name TEXT NOT NULL,
-      type TEXT NOT NULL,
       generated TEXT NOT NULL,
       username TEXT NOT NULL DEFAULT '',
-      csv TEXT NOT NULL,
+      total_members INTEGER DEFAULT 0,
+      online_count INTEGER DEFAULT 0,
+      csv TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS rep_hist_analysis (
+      id TEXT PRIMARY KEY,
+      guild_name TEXT NOT NULL,
+      generated TEXT NOT NULL,
+      username TEXT NOT NULL DEFAULT '',
+      csv TEXT NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS rep_hist_ai_scan (
+      id TEXT PRIMARY KEY,
+      guild_name TEXT NOT NULL,
+      generated TEXT NOT NULL,
+      username TEXT NOT NULL DEFAULT '',
+      message_count INTEGER DEFAULT 0,
       ai_scan TEXT NOT NULL DEFAULT '',
       risk_score INTEGER DEFAULT NULL,
       nice_score INTEGER DEFAULT NULL,
       weird_score INTEGER DEFAULT NULL,
       spammer_score INTEGER DEFAULT NULL,
-      ai_score INTEGER DEFAULT NULL,
-      message_count INTEGER DEFAULT 0,
+      ai_score INTEGER DEFAULT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS rep_hist_channel_summary (
+      id TEXT PRIMARY KEY,
+      guild_name TEXT NOT NULL,
+      generated TEXT NOT NULL,
       channel_id TEXT NOT NULL DEFAULT '',
       channel_name TEXT NOT NULL DEFAULT '',
+      message_count INTEGER DEFAULT 0,
+      ai_scan TEXT NOT NULL DEFAULT ''
+    );
+
+    CREATE TABLE IF NOT EXISTS rep_hist_guild_scan (
+      id TEXT PRIMARY KEY,
+      guild_name TEXT NOT NULL,
+      generated TEXT NOT NULL,
+      message_count INTEGER DEFAULT 0,
+      ai_scan TEXT NOT NULL DEFAULT '',
       guild_activity_score INTEGER DEFAULT NULL,
       guild_health_score INTEGER DEFAULT NULL,
       guild_toxicity_score INTEGER DEFAULT NULL,
@@ -103,7 +125,7 @@ export function getGuildDb(guildId: string): DbType {
       guild_engagement_score INTEGER DEFAULT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS modlogs (
+    CREATE TABLE IF NOT EXISTS log_mod (
       id TEXT PRIMARY KEY,
       timestamp TEXT NOT NULL,
       action TEXT NOT NULL,
@@ -119,7 +141,7 @@ export function getGuildDb(guildId: string): DbType {
       messages_deleted INTEGER DEFAULT 0
     );
 
-    CREATE TABLE IF NOT EXISTS saylogs (
+    CREATE TABLE IF NOT EXISTS log_say (
       id TEXT PRIMARY KEY,
       timestamp TEXT NOT NULL,
       guild_id TEXT NOT NULL,
@@ -130,7 +152,7 @@ export function getGuildDb(guildId: string): DbType {
       message_id TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS checksums (
+    CREATE TABLE IF NOT EXISTS filter_image (
       checksum TEXT PRIMARY KEY,
       label TEXT NOT NULL DEFAULT ''
     );
@@ -142,7 +164,7 @@ export function getGuildDb(guildId: string): DbType {
     INSERT OR IGNORE INTO config (key, value) VALUES ('action', 'ban');
     INSERT OR IGNORE INTO config (key, value) VALUES ('aichat_enabled', 'false');
 
-    CREATE TABLE IF NOT EXISTS textfilters (
+    CREATE TABLE IF NOT EXISTS filter_text (
       id TEXT PRIMARY KEY,
       pattern TEXT NOT NULL,
       action TEXT NOT NULL CHECK(action IN ('warn', 'kick', 'ban')),
@@ -150,7 +172,7 @@ export function getGuildDb(guildId: string): DbType {
       created_at TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS textfilter_logs (
+    CREATE TABLE IF NOT EXISTS log_textfilter (
       id TEXT PRIMARY KEY,
       timestamp TEXT NOT NULL,
       action TEXT NOT NULL,
@@ -164,13 +186,8 @@ export function getGuildDb(guildId: string): DbType {
       guild_id TEXT NOT NULL,
       guild_name TEXT NOT NULL
     );
-  `);
 
-  // Schema migrations for existing databases handled by tools/migrate-schema.sh
-
-  // Manual action log for mod actions (message deletions, etc.)
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS ai_chat_log (
+    CREATE TABLE IF NOT EXISTS log_ai_chat (
       id TEXT PRIMARY KEY,
       guild_id TEXT NOT NULL,
       channel_id TEXT NOT NULL,
@@ -184,7 +201,7 @@ export function getGuildDb(guildId: string): DbType {
       created_at TEXT NOT NULL
     );
 
-    CREATE TABLE IF NOT EXISTS actionlogs (
+    CREATE TABLE IF NOT EXISTS log_action (
       id TEXT PRIMARY KEY,
       guild_id TEXT NOT NULL,
       guild_name TEXT NOT NULL,
@@ -197,8 +214,11 @@ export function getGuildDb(guildId: string): DbType {
       details TEXT NOT NULL DEFAULT ''
     );
   `);
-  try { db.exec("CREATE INDEX IF NOT EXISTS idx_actionlogs_guild ON actionlogs(guild_id)"); } catch {}
-  try { db.exec("CREATE INDEX IF NOT EXISTS idx_actionlogs_ts ON actionlogs(timestamp)"); } catch {}
+
+  // Schema migrations for existing databases handled by tools/migrate-schema.sh
+
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_log_action_guild ON log_action(guild_id)"); } catch {}
+  try { db.exec("CREATE INDEX IF NOT EXISTS idx_log_action_ts ON log_action(timestamp)"); } catch {}
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS message_edits (
