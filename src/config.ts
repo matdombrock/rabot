@@ -1,15 +1,41 @@
-import "dotenv/config";
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
 
-function getEnvVar(name: string, required = true): string {
-  const value = process.env[name];
-  if (!value && required) {
-    throw new Error(`Missing required environment variable: ${name}`);
-  }
-  return value ?? "";
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+interface Config {
+  port: number;
+  sessionSecret: string;
+  discord: {
+    token: string;
+    clientId: string;
+    guildId: string;
+  };
+  openrouter: {
+    apiKey: string;
+    model: string;
+  };
+  llmText: {
+    truncate: number;
+    maxTokens: number;
+    temperature: number;
+  };
+  imageDescribe: {
+    model: string;
+  };
 }
 
-export const config = {
-  token: getEnvVar("DISCORD_TOKEN"),
-  clientId: getEnvVar("CLIENT_ID"),
-  guildId: getEnvVar("GUILD_ID", false),
-} as const;
+function loadConfig(): Config {
+  const raw = readFileSync(join(__dirname, "config.json"), "utf-8");
+  return JSON.parse(raw) as Config;
+}
+
+export const config = loadConfig();
+
+if (!config.discord.token || config.discord.token === "your-bot-token-here") {
+  throw new Error("Missing discord.token in src/config.json — edit the file with your bot token");
+}
+if (!config.discord.clientId || config.discord.clientId === "your-client-id-here") {
+  throw new Error("Missing discord.clientId in src/config.json");
+}

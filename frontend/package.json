@@ -1,0 +1,23 @@
+{
+  "name": "frontend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "@sveltejs/vite-plugin-svelte": "^7.1.2",
+    "@types/sortablejs": "^1.15.9",
+    "svelte": "^5.56.4",
+    "vite": "^8.1.1"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^7.3.0",
+    "chart.js": "^4.5.1",
+    "marked": "^18.0.6",
+    "sortablejs": "^1.15.7"
+  }
+}

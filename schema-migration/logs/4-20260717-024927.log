@@ -1,0 +1,34 @@
+=== Schema migration 4: rename filter tables Fri Jul 17 02:49:27 AM PDT 2026 ===
+
+--- Guild: 1117591229429989387 (db/1117591229429989387/data.db) ---
+  [CREATE] filter_image (from checksums)
+  [CREATE] filter_text (from textfilters)
+  [MIGRATE] 0 rows → filter_image
+  [MIGRATE] 0 rows → filter_text
+  [DROP] checksums
+  [DROP] textfilters
+  [OK]  Migration complete for guild 1117591229429989387
+
+--- Guild: 665136708261642261 (db/665136708261642261/data.db) ---
+  [CREATE] filter_image (from checksums)
+  [CREATE] filter_text (from textfilters)
+  [MIGRATE] 0 rows → filter_image
+  [MIGRATE] 0 rows → filter_text
+  [DROP] checksums
+  [DROP] textfilters
+  [OK]  Migration complete for guild 665136708261642261
+
+--- Guild: 989132567003426866 (db/989132567003426866/data.db) ---
+  [CREATE] filter_image (from checksums)
+  [CREATE] filter_text (from textfilters)
+  [MIGRATE] 0 rows → filter_image
+  [MIGRATE] 0 rows → filter_text
+  [DROP] checksums
+  [DROP] textfilters
+  [OK]  Migration complete for guild 989132567003426866
+
+=== Migration complete ===
+  Databases processed: 3
+  Databases skipped: 0
+  Errors: 0
+  Log: ./schema-migration/logs/4-20260717-024927.log

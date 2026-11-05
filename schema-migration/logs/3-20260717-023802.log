@@ -1,0 +1,67 @@
+=== Schema migration 3: rename log tables to log_* prefix Fri Jul 17 02:38:02 AM PDT 2026 ===
+
+--- Guild: 1117591229429989387 (db/1117591229429989387/data.db) ---
+  [CREATE] log_mod (from modlogs)
+  [CREATE] log_say (from saylogs)
+  [CREATE] log_textfilter (from textfilter_logs)
+  [CREATE] log_ai_chat (from ai_chat_log)
+  [CREATE] log_action (from actionlogs)
+  [MIGRATE] 0 rows → log_mod
+  [MIGRATE] 0 rows → log_say
+  [MIGRATE] 0 rows → log_textfilter
+  [MIGRATE] 10 rows → log_ai_chat
+  [MIGRATE] 2 rows → log_action
+  [DROP] modlogs
+  [DROP] saylogs
+  [DROP] textfilter_logs
+  [DROP] ai_chat_log
+  [DROP] actionlogs
+  [INDEX] idx_log_action_guild ON log_action(guild_id)
+  [INDEX] idx_log_action_ts ON log_action(timestamp)
+  [OK]  Migration complete for guild 1117591229429989387
+
+--- Guild: 665136708261642261 (db/665136708261642261/data.db) ---
+  [CREATE] log_mod (from modlogs)
+  [CREATE] log_say (from saylogs)
+  [CREATE] log_textfilter (from textfilter_logs)
+  [CREATE] log_ai_chat (from ai_chat_log)
+  [CREATE] log_action (from actionlogs)
+  [MIGRATE] 0 rows → log_mod
+  [MIGRATE] 0 rows → log_say
+  [MIGRATE] 0 rows → log_textfilter
+  [MIGRATE] 11 rows → log_ai_chat
+  [MIGRATE] 10 rows → log_action
+  [DROP] modlogs
+  [DROP] saylogs
+  [DROP] textfilter_logs
+  [DROP] ai_chat_log
+  [DROP] actionlogs
+  [INDEX] idx_log_action_guild ON log_action(guild_id)
+  [INDEX] idx_log_action_ts ON log_action(timestamp)
+  [OK]  Migration complete for guild 665136708261642261
+
+--- Guild: 989132567003426866 (db/989132567003426866/data.db) ---
+  [CREATE] log_mod (from modlogs)
+  [CREATE] log_say (from saylogs)
+  [CREATE] log_textfilter (from textfilter_logs)
+  [CREATE] log_ai_chat (from ai_chat_log)
+  [CREATE] log_action (from actionlogs)
+  [MIGRATE] 0 rows → log_mod
+  [MIGRATE] 0 rows → log_say
+  [MIGRATE] 0 rows → log_textfilter
+  [MIGRATE] 0 rows → log_ai_chat
+  [MIGRATE] 3 rows → log_action
+  [DROP] modlogs
+  [DROP] saylogs
+  [DROP] textfilter_logs
+  [DROP] ai_chat_log
+  [DROP] actionlogs
+  [INDEX] idx_log_action_guild ON log_action(guild_id)
+  [INDEX] idx_log_action_ts ON log_action(timestamp)
+  [OK]  Migration complete for guild 989132567003426866
+
+=== Migration complete ===
+  Databases processed: 3
+  Databases skipped (already migrated): 0
+  Errors: 0
+  Log: ./schema-migration/logs/3-20260717-023802.log

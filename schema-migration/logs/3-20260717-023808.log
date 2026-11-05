@@ -1,0 +1,16 @@
+=== Schema migration 3: rename log tables to log_* prefix Fri Jul 17 02:38:08 AM PDT 2026 ===
+
+--- Guild: 1117591229429989387 (db/1117591229429989387/data.db) ---
+  [SKIP] modlogs already renamed — skipping
+
+--- Guild: 665136708261642261 (db/665136708261642261/data.db) ---
+  [SKIP] modlogs already renamed — skipping
+
+--- Guild: 989132567003426866 (db/989132567003426866/data.db) ---
+  [SKIP] modlogs already renamed — skipping
+
+=== Migration complete ===
+  Databases processed: 0
+  Databases skipped (already migrated): 3
+  Errors: 0
+  Log: ./schema-migration/logs/3-20260717-023808.log

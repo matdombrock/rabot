@@ -14,6 +14,7 @@ export interface QuickReportResult {
   guildName: string;
   generated: string;
   totalMembers: number;
+  onlineCount: number;
   csv: string;
 }
 
@@ -24,9 +25,17 @@ export async function generateQuickReport(guild: Guild): Promise<QuickReportResu
     memberCache.set(guild.id, { fetchedAt: Date.now() });
   }
 
+  // Fetch guild from REST API for approximate_presence_count
+  // (available without GuildPresences privileged intent)
+  let onlineCount = 0;
+  try {
+    const fetched = await guild.fetch();
+    onlineCount = fetched.approximatePresenceCount ?? 0;
+  } catch {}
+
   const members = guild.members.cache;
   const now = Date.now();
-  const header = "Username,Display Name,Top Role,Days in Server";
+  const header = "ID,Avatar,Username,Display Name,Top Role,Days in Server";
   const rows: string[] = [header];
 
   for (const [, member] of members) {
@@ -35,8 +44,11 @@ export async function generateQuickReport(guild: Guild): Promise<QuickReportResu
       ? Math.floor((now - member.joinedAt.getTime()) / 86_400_000)
       : "?";
     const topRole = member.roles.highest.name;
+    const avatarUrl = member.displayAvatarURL({ size: 32 });
     rows.push(
       [
+        user.id,
+        csvEscape(avatarUrl),
         csvEscape(user.username),
         csvEscape(member.displayName),
         csvEscape(topRole),
@@ -49,6 +61,7 @@ export async function generateQuickReport(guild: Guild): Promise<QuickReportResu
     guildName: guild.name,
     generated: new Date().toISOString(),
     totalMembers: members.size,
+    onlineCount,
     csv: rows.join("\n"),
   };
 }

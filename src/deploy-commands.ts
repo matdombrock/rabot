@@ -18,17 +18,17 @@ async function clearCommands(rest: REST, clientId: string, guildId?: string) {
 }
 
 async function deployCommands() {
-  const rest = new REST({ version: "10" }).setToken(config.token);
-  const guildId = config.guildId || undefined;
+  const rest = new REST({ version: "10" }).setToken(config.discord.token);
+  const guildId = config.discord.guildId || undefined;
 
   if (guildId) {
     console.log(`Clearing commands for guild ${guildId}...`);
-    const n = await clearCommands(rest, config.clientId, guildId);
+    const n = await clearCommands(rest, config.discord.clientId, guildId);
     console.log(`Deleted ${n} guild commands.`);
   }
 
   console.log("Clearing global commands...");
-  const n = await clearCommands(rest, config.clientId);
+  const n = await clearCommands(rest, config.discord.clientId);
   console.log(`Deleted ${n} global commands.`);
 
   const commands = await loadCommands();
@@ -36,11 +36,11 @@ async function deployCommands() {
 
   if (guildId) {
     console.log(`Deploying ${json.length} commands to guild ${guildId}...`);
-    await rest.put(Routes.applicationGuildCommands(config.clientId, guildId), { body: json });
+    await rest.put(Routes.applicationGuildCommands(config.discord.clientId, guildId), { body: json });
   }
 
   console.log(`Deploying ${json.length} global commands...`);
-  const data = await rest.put(Routes.applicationCommands(config.clientId), { body: json });
+  const data = await rest.put(Routes.applicationCommands(config.discord.clientId), { body: json });
 
   console.log(`Successfully deployed ${(data as unknown[]).length} global commands.`);
 }
